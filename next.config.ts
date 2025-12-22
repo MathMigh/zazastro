@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   allowedDevOrigins: ["http://192.168.18.108:3000"],
 
+  turbopack: {}, // ative se quiser testar turbopack
+
   webpack: (config, { dev }) => {
     if (dev) {
       // Evita escanear node_modules e reduz frequência de rebuild
