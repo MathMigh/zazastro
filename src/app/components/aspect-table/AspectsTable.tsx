@@ -641,7 +641,7 @@ export default function AspectsTable({
         <SkeletonTable rows={12} />
       </div>) :
       <>
-        <div className="w-full flex flex-row items-center justify-between">
+        <div className="w-full 2xl:w-[420px] 3xl:w-[470px] flex flex-row items-center justify-between">
           <h2 className="font-bold text-lg mb-2">Aspectos:</h2>
           <Image
             alt="info"
@@ -761,11 +761,11 @@ export default function AspectsTable({
                           >
                             <Image
                               alt="star"
-                              src="/star.png"
+                              src={aspect.aspectedElement.isRelevant ? "/table-relevant-star.png" : "/star.png"}
                               width={10}
                               height={10}
                             />
-                            {aspect.aspectedElement.name}
+                            <span className={aspect.aspectedElement.isRelevant ? 'text-[#4015fa]' : 'text-black'}>{aspect.aspectedElement.name}</span>
                           </div>
                         </td>
                       )}
@@ -809,6 +809,7 @@ export default function AspectsTable({
                   <option value={5}>5</option>
                   <option value={10}>10</option>
                   <option value={15}>15</option>
+                  <option value={20}>20</option>
                 </select>
               </td>
 

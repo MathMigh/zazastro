@@ -76,6 +76,11 @@ export const caldaicOrder: PlanetType[] = [
   "mars",
   "jupiter",
   "saturn",
+  "uranus",
+  "neptune",
+  "pluto",
+  "northNode",
+  "southNode",
 ];
 
 export const arabicPartKeys: (keyof ArabicPartsType)[] = [

@@ -113,6 +113,7 @@ export interface FixedStar extends ChartElement {
   longitudeSign: string;
   latitude: number;
   magnitude: number;
+  isRelevant: boolean;
 }
 
 export interface ChatDateProps {

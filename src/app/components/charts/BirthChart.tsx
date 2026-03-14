@@ -30,6 +30,7 @@ import Container from "../Container";
 import SecondaryProgressionChart from "./SecondaryProgressionChart";
 import { useScreenDimensions } from "@/contexts/ScreenDimensionsContext";
 import ProfectionChart from "./ProfectionChart";
+import CitySearch from "../CitySearch";
 
 type MenuButtonChoice =
   | "home"
@@ -39,7 +40,8 @@ type MenuButtonChoice =
   | "lunarReturn"
   | "sinastry"
   | "secondaryProgressions"
-  | "profection";
+  | "profection"
+  | "momentMap";
 
 export default function BirthChart() {
   const [loading, setLoading] = useState(false);
@@ -52,7 +54,7 @@ export default function BirthChart() {
     profectionChart,
     updateBirthChart,
     currentCity,
-    updateCurrentCity,
+    selectCity,
     sinastryChart,
   } = useBirthChart();
   const { profiles } = useProfiles();
@@ -187,7 +189,8 @@ export default function BirthChart() {
       setChartProfile(chartProfileToOverwrite);
     }
 
-    updateCurrentCity(chartProfileToOverwrite?.birthDate?.coordinates);
+    if (chartProfileToOverwrite?.birthDate?.coordinates)
+      selectCity(chartProfileToOverwrite?.birthDate?.coordinates);
 
     try {
       const data = await apiFetch("birth-chart", {
@@ -228,7 +231,8 @@ export default function BirthChart() {
       year: returnType === "solar" ? solarYear : lunarYear,
     };
 
-    updateCurrentCity(chartProfile.birthDate!.coordinates);
+    if (chartProfile?.birthDate?.coordinates)
+      selectCity(chartProfile?.birthDate?.coordinates);
 
     const data = await apiFetch("return/" + returnType, {
       method: "POST",
@@ -306,7 +310,8 @@ export default function BirthChart() {
       return;
     }
 
-    updateCurrentCity(chartProfile.birthDate?.coordinates);
+    if (chartProfile?.birthDate?.coordinates)
+      selectCity(chartProfile?.birthDate?.coordinates);
 
     try {
       const data = await apiFetch("birth-chart", {
@@ -364,6 +369,7 @@ export default function BirthChart() {
       return "Escolha os mapas a serem combinados em sinastria";
     else if (menu === "secondaryProgressions") return "Progressões Secundárias";
     else if (menu === "profection") return "Profecção Anual";
+    else if (menu === "momentMap") return "Mapa do Momento";
 
     return "Sem título";
   }
@@ -493,6 +499,7 @@ export default function BirthChart() {
 
   function canRenderChart(): boolean {
     if ((menu === "birthChart" || menu === "home") && birthChart) return true;
+    if ((menu === "birthChart" || menu === "momentMap") && birthChart) return true;
     if ((menu === "solarReturn" || menu === "lunarReturn") && returnChart) return true;
     if (menu === "sinastry" && sinastryChart) return true;
     if (menu === "secondaryProgressions" && progressionChart && birthChart) return true;
@@ -730,7 +737,7 @@ export default function BirthChart() {
 
         {menu === "home" && (
           <button
-            onClick={() => getMomentBirthChart()}
+            onClick={() => setMenu("momentMap")}
             className="default-btn"
           >
             Mapa do Momento
@@ -827,6 +834,21 @@ export default function BirthChart() {
           </form>
         )}
 
+        {menu === "momentMap" && (
+          <>
+            <CitySearch
+              onSelect={selectCity}
+            />
+            <button
+              className="default-btn"
+              onClick={() => getMomentBirthChart()}
+            >
+              Gerar Mapa
+            </button>
+          </>
+        )}
+
+        {/* Back btn */}
         {menu !== "home" && (
           <button
             className="default-btn"

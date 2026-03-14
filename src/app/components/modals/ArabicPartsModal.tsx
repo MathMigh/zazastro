@@ -91,7 +91,7 @@ export default function ArabicPartsModal(props: ArabicPartsModalProps) {
                       {formatSignColor(arabicPart.longitudeSign)}
                     </span>
                     <span className="w-[8rem] flex flex-row items-center pl-2">
-                      {isMobileBreakPoint() ? "Ant:" : "Antiscion:"}
+                      {isMobileBreakPoint() ? "Ant:" : "Antiscion:"}&nbsp;
                       <span className="w-full text-end">
                         {formatSignColor(arabicPart.antiscionSign)}
                       </span>

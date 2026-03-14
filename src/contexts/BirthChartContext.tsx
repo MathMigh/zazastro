@@ -35,7 +35,7 @@ interface BirthChartContextType {
   updateIsCombinedWithReturnChart: (val: boolean) => void;
   profileName?: string;
   currentCity?: SelectedCity;
-  updateCurrentCity: (val?: SelectedCity) => void;
+  selectCity: (city?: SelectedCity) => void;
 
   sinastryChart?: BirthChart;
   updateSinastryChart: (sinastryChart?: BirthChart) => void;
@@ -158,8 +158,15 @@ export const BirthChartContextProvider: React.FC<{ children: ReactNode }> = ({
     setSinastryChart(sinastryChart);
   };
 
-  const updateCurrentCity = (newCity?: SelectedCity) => {
-    setCurrentCity(newCity);
+  const selectCity = (selectedCity?: SelectedCity) => {
+    const cityName = selectedCity?.name?.split(",")[0];
+
+    const cityObj: SelectedCity | undefined = selectedCity? {
+      ...selectedCity,
+      name: cityName,
+    } : undefined;
+
+    setCurrentCity(cityObj);
   };
 
   const updateLoadingNextChart = (val: boolean) => {
@@ -184,7 +191,7 @@ export const BirthChartContextProvider: React.FC<{ children: ReactNode }> = ({
         lunarDerivedChart,
         updateLunarDerivedChart,
         currentCity,
-        updateCurrentCity,
+        selectCity,
         sinastryChart,
         updateSinastryChart,
         progressionChart,

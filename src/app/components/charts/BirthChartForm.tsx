@@ -31,28 +31,12 @@ export default function BirthChartForm(props: BirthChartFormProps) {
   const [year, setYear] = useState<number | null>(null);
   const [hour, setHour] = useState<number | null>(null);
   const [minutes, setMinutes] = useState<number | null>(null);
-  const [coordinates, setCoordinates] = useState<SelectedCity>({
-    latitude: 0,
-    longitude: 0,
-  });
   const [profile, setProfile] = useState<BirthChartProfile | undefined>();
   const [menu, setMenu] = useState(0);
   const form = useRef<HTMLFormElement>(null);
   const [editProfile, setEditProfile] = useState(false);
   const [showDeleteProfileMenu, setShowDeleteProfileMenu] = useState(false);
-  const { updateCurrentCity } = useBirthChart();
-
-  const selectCity = (selectedCity: SelectedCity) => {
-    const cityName = selectedCity.name?.split(",")[0];
-
-    const cityObj: SelectedCity = {
-      ...selectedCity,
-      name: cityName,
-    };
-
-    setCoordinates(cityObj);
-    updateCurrentCity(cityObj);
-  };
+  const { currentCity, selectCity } = useBirthChart();
 
   useEffect(() => {
     if (
@@ -61,7 +45,7 @@ export default function BirthChartForm(props: BirthChartFormProps) {
       year &&
       name.length > 0 &&
       hour !== null &&
-      minutes !== null
+      minutes !== null && currentCity
     ) {
       setProfile({
         id: editProfile ? profile?.id : undefined,
@@ -71,20 +55,17 @@ export default function BirthChartForm(props: BirthChartFormProps) {
           month,
           year,
           time: convertDegMinToDecimal(hour, minutes).toString(),
-          coordinates,
+          coordinates: currentCity!,
         },
       });
     }
-  }, [name, day, month, year, hour, minutes, coordinates]);
+  }, [name, day, month, year, hour, minutes, currentCity]);
 
   useEffect(() => {
     if (profiles.length === 0) {
       setMenu(1);
     } else {
-      // console.log("selecting first profile");
       setProfile(profiles[0]);
-      if (profiles[0].birthDate)
-        setCoordinates(profiles[0].birthDate.coordinates);
     }
   }, [profiles]);
 
@@ -104,7 +85,7 @@ export default function BirthChartForm(props: BirthChartFormProps) {
 
       setHour(Number.parseInt(hourToEdit));
       setMinutes(Number.parseInt(minutesToEdit));
-      setCoordinates(profile.birthDate.coordinates);
+      selectCity(profile.birthDate.coordinates);
     }
   }
 
@@ -376,7 +357,7 @@ export default function BirthChartForm(props: BirthChartFormProps) {
                 e.preventDefault();
                 if (profile?.id && deleteProfile(profile.id)) {
                   setProfile(undefined);
-                  setCoordinates({ latitude: 0, longitude: 0 });
+                  selectCity({ latitude: 0, longitude: 0 });
                   alert("Perfil deletado com sucesso.");
                   if (profiles.length === 0) {
                     setMenu(1);

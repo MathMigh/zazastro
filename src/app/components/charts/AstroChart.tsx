@@ -426,22 +426,32 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     };
   }
 
+  const isTraditionalPlanet = (element: ChartElement): boolean => {
+    return element.planetType !== "uranus" &&
+      element.planetType !== "neptune" &&
+      element.planetType !== "pluto" &&
+      element.planetType !== "northNode" &&
+      element.planetType !== "southNode";
+  }
+
   function isAspectableElement(
     element: ChartElement,
     fixedStarAspect: boolean = false
   ): boolean {
     if (fixedStarAspect && element.isAntiscion) return false;
     if (fixedStarAspect && element.elementType === "arabicPart") return false;
+    if (fixedStarAspect && !isTraditionalPlanet(element)) return false;
+    if (!isTraditionalPlanet(element) && element.isAntiscion) return false;
 
-    if (element.elementType === "planet") {
-      const isAspectablePlanet =
-        element.planetType !== "uranus" &&
-        element.planetType !== "neptune" &&
-        element.planetType !== "pluto" &&
-        element.planetType !== "northNode" &&
-        element.planetType !== "southNode";
-      return isAspectablePlanet;
-    }
+    // if (element.elementType === "planet") {
+    //   const isAspectablePlanet =
+    //     element.planetType !== "uranus" &&
+    //     element.planetType !== "neptune" &&
+    //     element.planetType !== "pluto" &&
+    //     element.planetType !== "northNode" &&
+    //     element.planetType !== "southNode";
+    //   return isAspectablePlanet;
+    // }
 
     return true;
   }
@@ -453,6 +463,9 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
       return aspect.type === "conjunction" || aspect.type === "opposition";
     } else if (element.elementType === "house")
       return aspect.type !== "sextile";
+    else if (element.elementType === "planet" && !isTraditionalPlanet(element)) {
+      return aspect.type === "conjunction";
+    }
 
     return true;
   }
@@ -531,9 +544,7 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
       const fixedStar = aspectedElement as FixedStar;
 
       if (fixedStar.magnitude >= 3) return 1;
-      if (fixedStar.magnitude < 3 && fixedStar.magnitude >= 2) return 1.5;
-      if (fixedStar.magnitude < 2 && fixedStar.magnitude >= 1) return 2;
-      if (fixedStar.magnitude < 1) return 3;
+      if (fixedStar.magnitude < 3) return 2;
     }
 
     if (
@@ -543,8 +554,8 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
         aspectedElement.elementType === "arabicPart")
     )
       // some of them is arabic part and the other isn't house, so may be arabicPart or a planet,
-      // so the orb will be only 1.2 degree
-      return 1.2;
+      // so the orb will be only 1.1 degree
+      return 1.1;
     else if (
       (element.elementType === "house" ||
         aspectedElement.elementType === "house") &&
@@ -643,6 +654,19 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     }
   }
 
+  function isAspectBetweenTransaturninesAndArabicParts(element: ChartElement, elToCheck: ChartElement): boolean {
+    return element.elementType === "arabicPart" && (elToCheck.elementType === "planet" && !isTraditionalPlanet(elToCheck)) ||
+      elToCheck.elementType === "arabicPart" && (element.elementType === "planet" && !isTraditionalPlanet(element));
+  }
+
+  function elementsFromDifferentChartsWithIrrelevantAspect(element: ChartElement, elToCheck: ChartElement, aspect: Aspect): boolean {
+    if (element.isFromOuterChart && !elToCheck.isFromOuterChart || !element.isFromOuterChart && elToCheck.isFromOuterChart) {
+      return aspect.type === "square" || aspect.type === "sextile";
+    }
+
+    return false;
+  }
+
   function getAspects(elements: ChartElement[]): PlanetAspectData[] {
     const aspectsData: PlanetAspectData[] = [];
     const aspectableElements = elements.filter((el) => isAspectableElement(el));
@@ -654,9 +678,11 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
             if (
               !elementIsEqualsTo(element, elToCheck) &&
               !bothElementsAreHouses(element, elToCheck) &&
+              !isAspectBetweenTransaturninesAndArabicParts(element, elToCheck) &&
               aspectCanBeUsed(elToCheck, aspect) &&
               aspectNotRenderedYet(aspectsData, element, elToCheck, aspect) &&
-              aspectElementsAreInProperSigns(element, elToCheck, aspect)
+              aspectElementsAreInProperSigns(element, elToCheck, aspect) &&
+              !elementsFromDifferentChartsWithIrrelevantAspect(element, elToCheck, aspect)
             ) {
               const orb = getAspectOrb(element, elToCheck, aspect);
               const valToCheck = mod360(element.longitude + aspect.angle);
@@ -773,6 +799,7 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
                 isFromOuterChart: false,
                 isAntiscion: false,
                 isRetrograde: false,
+                isRelevant: star.isRelevant
               },
               key: generateAspectKey(element, star, conjunction),
             });
@@ -1242,7 +1269,6 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
 
     // Desenha os planetas
     const lineStartOffset = 6; // quão “para dentro” a linha começa
-    // planets?.filter(p => p.type === "sun" || p.type === "moon" || p.type === "saturn")?.forEach((planet) => {
     planets?.forEach((planet) => {
       const chartElement: ChartElement = {
         id: chartElementsForAspect.current.length,
@@ -1327,63 +1353,66 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
           isRetrograde: planet.isRetrograde,
         };
 
-        overlapData = getElementOverlapLongitudeAndOffset(antiscionElement);
+        if (isTraditionalPlanet(antiscionElement)) {
 
-        // 1) ângulo zodiacal original (graus → rad)
-        const rawAntDegOriginal = 180 - (planet.antiscion % 360) - 90;
-        const rawAntDegOverlapped = 180 - (overlapData.longitude % 360) - 90;
-        const rawRadOriginal = (rawAntDegOriginal * Math.PI) / 180;
-        const rawRadOverlapped = (rawAntDegOverlapped * Math.PI) / 180;
+          overlapData = getElementOverlapLongitudeAndOffset(antiscionElement);
 
-        // 2) compensa a rotação do zodíaco (transforma em ângulo final)
-        const rotAntRad = (zodiacRotation * Math.PI) / 180;
-        const angleRadOriginal = rawRadOriginal - rotAntRad;
-        const angleRadOverlapped = rawRadOverlapped - rotAntRad;
+          // 1) ângulo zodiacal original (graus → rad)
+          const rawAntDegOriginal = 180 - (planet.antiscion % 360) - 90;
+          const rawAntDegOverlapped = 180 - (overlapData.longitude % 360) - 90;
+          const rawRadOriginal = (rawAntDegOriginal * Math.PI) / 180;
+          const rawRadOverlapped = (rawAntDegOverlapped * Math.PI) / 180;
 
-        // 3) offsets de sobreposição
-        // const rAntSymbol = radius - symbolOffset;
-        const rAntSymbol = radius - overlapData.offset;
-        const rAntLineStart = radius - lineStartOffset;
-        const AntLineEnd = radius;
+          // 2) compensa a rotação do zodíaco (transforma em ângulo final)
+          const rotAntRad = (zodiacRotation * Math.PI) / 180;
+          const angleRadOriginal = rawRadOriginal - rotAntRad;
+          const angleRadOverlapped = rawRadOverlapped - rotAntRad;
 
-        // 4) cálculos das coordenadas
-        const xAnts = rAntSymbol * Math.cos(angleRadOverlapped);
-        const yAnts = rAntSymbol * Math.sin(angleRadOverlapped);
+          // 3) offsets de sobreposição
+          // const rAntSymbol = radius - symbolOffset;
+          const rAntSymbol = radius - overlapData.offset;
+          const rAntLineStart = radius - lineStartOffset;
+          const AntLineEnd = radius;
 
-        const xAnt1 = rAntLineStart * Math.cos(angleRadOriginal);
-        const yAnt1 = rAntLineStart * Math.sin(angleRadOriginal);
-        const xAnt2 = AntLineEnd * Math.cos(angleRadOriginal);
-        const yAnt2 = AntLineEnd * Math.sin(angleRadOriginal);
+          // 4) cálculos das coordenadas
+          const xAnts = rAntSymbol * Math.cos(angleRadOverlapped);
+          const yAnts = rAntSymbol * Math.sin(angleRadOverlapped);
 
-        // 5) desenha a linha
-        baseGroup
-          .append("line")
-          .attr("x1", xAnt1)
-          .attr("y1", yAnt1)
-          .attr("x2", xAnt2)
-          .attr("y2", yAnt2)
-          .attr("stroke", "#ff914d") // antiscion color
-          .attr("stroke-width", 1);
+          const xAnt1 = rAntLineStart * Math.cos(angleRadOriginal);
+          const yAnt1 = rAntLineStart * Math.sin(angleRadOriginal);
+          const xAnt2 = AntLineEnd * Math.cos(angleRadOriginal);
+          const yAnt2 = AntLineEnd * Math.sin(angleRadOriginal);
 
-        // 6) desenha o ícone do planeta
-        const iconAntSize = 13; // px
-        const iconAntSrc = `/planets/antiscion/${planet.type}${planet.isRetrograde ? "-rx" : ""
-          }.png`;
+          // 5) desenha a linha
+          baseGroup
+            .append("line")
+            .attr("x1", xAnt1)
+            .attr("y1", yAnt1)
+            .attr("x2", xAnt2)
+            .attr("y2", yAnt2)
+            .attr("stroke", "#ff914d") // antiscion color
+            .attr("stroke-width", 1);
 
-        baseGroup
-          .append("image")
-          .attr("href", iconAntSrc) // no D3 v6+ use 'href'
-          .attr("width", iconAntSize)
-          .attr("height", iconAntSize)
-          // centraliza o ícone em (xs, ys)
-          .attr("x", xAnts - iconAntSize / 2)
-          .attr("y", yAnts - iconAntSize / 2);
+          // 6) desenha o ícone do planeta
+          const iconAntSize = 13; // px
+          const iconAntSrc = `/planets/antiscion/${planet.type}${planet.isRetrograde ? "-rx" : ""
+            }.png`;
 
-        // chartElementsForAspect.current.push(antiscionElement);
-        chartElementsForAspect.current = [
-          ...chartElementsForAspect.current,
-          antiscionElement,
-        ];
+          baseGroup
+            .append("image")
+            .attr("href", iconAntSrc) // no D3 v6+ use 'href'
+            .attr("width", iconAntSize)
+            .attr("height", iconAntSize)
+            // centraliza o ícone em (xs, ys)
+            .attr("x", xAnts - iconAntSize / 2)
+            .attr("y", yAnts - iconAntSize / 2);
+
+          // chartElementsForAspect.current.push(antiscionElement);
+          chartElementsForAspect.current = [
+            ...chartElementsForAspect.current,
+            antiscionElement,
+          ];
+        }
       }
     });
 
@@ -1689,63 +1718,65 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
             isRetrograde: planet.isRetrograde,
           };
 
-          overlapData = getElementOverlapLongitudeAndOffset(
-            chartElementAntiscion
-          );
+          if (isTraditionalPlanet(chartElementAntiscion)) {
+            overlapData = getElementOverlapLongitudeAndOffset(
+              chartElementAntiscion
+            );
 
-          // 1) ângulo zodiacal original (graus → rad)
-          const rawDegOriginal = 180 - (planet.antiscion % 360) - 90;
-          const rawDegOverlapped = 180 - (overlapData.longitude % 360) - 90;
-          const rawRadOriginal = (rawDegOriginal * Math.PI) / 180;
-          const rawRadOverlapped = (rawDegOverlapped * Math.PI) / 180;
+            // 1) ângulo zodiacal original (graus → rad)
+            const rawDegOriginal = 180 - (planet.antiscion % 360) - 90;
+            const rawDegOverlapped = 180 - (overlapData.longitude % 360) - 90;
+            const rawRadOriginal = (rawDegOriginal * Math.PI) / 180;
+            const rawRadOverlapped = (rawDegOverlapped * Math.PI) / 180;
 
-          // 2) compensa a rotação do zodíaco (transforma em ângulo final)
-          const rotRad = (zodiacRotation * Math.PI) / 180;
-          const angleRadOriginal = rawRadOriginal - rotRad;
-          const angleRadOverlapped = rawRadOverlapped - rotRad;
+            // 2) compensa a rotação do zodíaco (transforma em ângulo final)
+            const rotRad = (zodiacRotation * Math.PI) / 180;
+            const angleRadOriginal = rawRadOriginal - rotRad;
+            const angleRadOverlapped = rawRadOverlapped - rotRad;
 
-          // 3) offsets de sobreposição
-          // const rSymbol = radius - symbolOffset;
-          const rSymbol = outerZodiacRadius + overlapData.offset;
-          const rLineStart = outerZodiacRadius + lineStartOffset;
-          const rLineEnd = outerZodiacRadius;
+            // 3) offsets de sobreposição
+            // const rSymbol = radius - symbolOffset;
+            const rSymbol = outerZodiacRadius + overlapData.offset;
+            const rLineStart = outerZodiacRadius + lineStartOffset;
+            const rLineEnd = outerZodiacRadius;
 
-          // 4) cálculos das coordenadas
-          const xAnts = rSymbol * Math.cos(angleRadOverlapped);
-          const yAnts = rSymbol * Math.sin(angleRadOverlapped);
+            // 4) cálculos das coordenadas
+            const xAnts = rSymbol * Math.cos(angleRadOverlapped);
+            const yAnts = rSymbol * Math.sin(angleRadOverlapped);
 
-          const xAnt1 = rLineStart * Math.cos(angleRadOriginal);
-          const yAnt1 = rLineStart * Math.sin(angleRadOriginal);
-          const xAnt2 = rLineEnd * Math.cos(angleRadOriginal);
-          const yAnt2 = rLineEnd * Math.sin(angleRadOriginal);
+            const xAnt1 = rLineStart * Math.cos(angleRadOriginal);
+            const yAnt1 = rLineStart * Math.sin(angleRadOriginal);
+            const xAnt2 = rLineEnd * Math.cos(angleRadOriginal);
+            const yAnt2 = rLineEnd * Math.sin(angleRadOriginal);
 
-          // 5) desenha a linha
-          baseGroup
-            .append("line")
-            .attr("x1", xAnt1)
-            .attr("y1", yAnt1)
-            .attr("x2", xAnt2)
-            .attr("y2", yAnt2)
-            .attr("stroke", "#ff914d") // antiscion color
-            .attr("stroke-width", 1);
+            // 5) desenha a linha
+            baseGroup
+              .append("line")
+              .attr("x1", xAnt1)
+              .attr("y1", yAnt1)
+              .attr("x2", xAnt2)
+              .attr("y2", yAnt2)
+              .attr("stroke", "#ff914d") // antiscion color
+              .attr("stroke-width", 1);
 
-          // 6) desenha o ícone do planeta
-          const iconAntSrc = `/planets/antiscion/${planet.type}${planet.isRetrograde ? "-rx" : ""
-            }.png`;
+            // 6) desenha o ícone do planeta
+            const iconAntSrc = `/planets/antiscion/${planet.type}${planet.isRetrograde ? "-rx" : ""
+              }.png`;
 
-          baseGroup
-            .append("image")
-            .attr("href", iconAntSrc) // no D3 v6+ use 'href'
-            .attr("width", iconSize)
-            .attr("height", iconSize)
-            .attr("x", xAnts - iconSize / 2)
-            .attr("y", yAnts - iconSize / 2);
+            baseGroup
+              .append("image")
+              .attr("href", iconAntSrc) // no D3 v6+ use 'href'
+              .attr("width", iconSize)
+              .attr("height", iconSize)
+              .attr("x", xAnts - iconSize / 2)
+              .attr("y", yAnts - iconSize / 2);
 
-          // chartElementsForAspect.current.push(chartElementAntiscion);
-          chartElementsForAspect.current = [
-            ...chartElementsForAspect.current,
-            chartElementAntiscion,
-          ];
+            // chartElementsForAspect.current.push(chartElementAntiscion);
+            chartElementsForAspect.current = [
+              ...chartElementsForAspect.current,
+              chartElementAntiscion,
+            ];
+          }
         }
       });
     }
@@ -1996,6 +2027,8 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
   ]);
 
   useEffect(() => {
+    console.log(fixedStarsAspects);
+
     fixedStarsAspects.forEach((asp) => {
       // 1) ângulo zodiacal original (graus → rad)
       const rawDeg = 180 - (asp.aspectedElement.longitude % 360) - 90;
@@ -2014,7 +2047,8 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
 
       // 5) desenha o ícone da estrela
       const iconSize = 9; // px
-      const iconSrc = "star-1.png";
+      const iconSrc = asp.aspectedElement.isRelevant ? "relevant-star.png" : "star-1.png";
+      const opacity = asp.aspectedElement.isRelevant ? 1 : 0.4;
 
       baseGroupRef.current
         ?.append("image")
@@ -2023,7 +2057,7 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
         .attr("height", iconSize)
         .attr("x", xs - iconSize / 2)
         .attr("y", ys - iconSize / 2)
-        .attr("opacity", 0.5);
+        .attr("opacity", opacity);
     });
   }, [fixedStarsAspects]);
 

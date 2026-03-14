@@ -65,6 +65,7 @@ export interface AspectedElement {
   isFromOuterChart: boolean;
   isAntiscion: boolean;
   isRetrograde: boolean;
+  isRelevant?: boolean;
 }
 
 export interface PlanetAspectData {
