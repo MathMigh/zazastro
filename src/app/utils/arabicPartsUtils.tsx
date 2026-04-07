@@ -9,7 +9,7 @@ const CIRCLE_MIN = 21600;
 // ============================================
 
 // 1. toTotal: converte de signo, grau e minuto para minutos absolutos
-export const toTotalLocal = (signo: number, grau: number, minuto: number): number => {
+export const toTotal = (signo: number, grau: number, minuto: number): number => {
   return (signo * 1800) + (grau * 60) + minuto;
 };
 
@@ -18,7 +18,7 @@ const decimalToAbsoluteMin = (decimalLon: number): number => {
   const s = Math.floor(decimalLon / 30);
   const g = Math.floor(decimalLon % 30);
   const m = Math.round((decimalLon - (s * 30 + g)) * 60);
-  return toTotalLocal(s, g, m);
+  return toTotal(s, g, m);
 };
 
 // 2. fromTotal: converte de minutos absolutos para signo, grau e minuto
@@ -54,7 +54,7 @@ const formatStringSafe = (totalStr: number, glyphOnly: boolean): string => {
 
 // Regra tradicional de antíscia (espelhamento)
 const getAntiscionLocal = (total: number): number => {
-  return normalize(32399 - total);
+  return normalize(32400 - total);
 };
 
 // ============================================
