@@ -141,16 +141,16 @@ export function calculateLotOfNecessity(
   const asc = decimalToAbsoluteMin(chartData.housesData.ascendant);
   const sunDecimal = chartData.planets.find((p) => p.type === "sun")!.longitudeRaw;
   const lotOfFortune = Math.round(arabicParts.fortune!.longitudeRaw);
-  const saturn = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "saturn")!.longitudeRaw);
+  const lotOfSpirit = Math.round(arabicParts.spirit!.longitudeRaw);
 
   const isNight = getSectLocal(sunDecimal, chartData.housesData.house);
-  const total = isNight ? calcPart(asc, saturn, lotOfFortune) : calcPart(asc, lotOfFortune, saturn);
+  const total = isNight ? calcPart(asc, lotOfSpirit, lotOfFortune) : calcPart(asc, lotOfFortune, lotOfSpirit);
 
   return {
     name: "Necessidade",
     planet: "mercury",
     partKey: "necessity",
-    formulaDescription: isNight ? "AC + Saturno - Fortuna" : "AC + Fortuna - Saturno",
+    formulaDescription: isNight ? "AC + Espírito - Fortuna" : "AC + Fortuna - Espírito",
     longitudeRaw: total,
     ...getArabicPartData(total, asc),
   };
@@ -162,17 +162,17 @@ export function calculateLotOfLove(
 ): ArabicPart {
   const asc = decimalToAbsoluteMin(chartData.housesData.ascendant);
   const sunDecimal = chartData.planets.find((p) => p.type === "sun")!.longitudeRaw;
-  const sun = decimalToAbsoluteMin(sunDecimal);
-  const venus = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "venus")!.longitudeRaw);
+  const lotOfFortune = Math.round(arabicParts.fortune!.longitudeRaw);
+  const lotOfSpirit = Math.round(arabicParts.spirit!.longitudeRaw);
 
   const isNight = getSectLocal(sunDecimal, chartData.housesData.house);
-  const total = isNight ? calcPart(asc, sun, venus) : calcPart(asc, venus, sun);
+  const total = isNight ? calcPart(asc, lotOfFortune, lotOfSpirit) : calcPart(asc, lotOfSpirit, lotOfFortune);
 
   return {
     name: "Amor",
     planet: "venus",
     partKey: "love",
-    formulaDescription: isNight ? "AC + Sol - Vênus" : "AC + Vênus - Sol",
+    formulaDescription: isNight ? "AC + Fortuna - Espírito" : "AC + Espírito - Fortuna",
     longitudeRaw: total,
     ...getArabicPartData(total, asc),
   };
@@ -184,17 +184,17 @@ export function calculateLotOfValor(
 ): ArabicPart {
   const asc = decimalToAbsoluteMin(chartData.housesData.ascendant);
   const sunDecimal = chartData.planets.find((p) => p.type === "sun")!.longitudeRaw;
-  const sun = decimalToAbsoluteMin(sunDecimal);
   const mars = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "mars")!.longitudeRaw);
+  const lotOfFortune = Math.round(arabicParts.fortune!.longitudeRaw);
 
   const isNight = getSectLocal(sunDecimal, chartData.housesData.house);
-  const total = isNight ? calcPart(asc, sun, mars) : calcPart(asc, mars, sun);
+  const total = isNight ? calcPart(asc, mars, lotOfFortune) : calcPart(asc, lotOfFortune, mars);
 
   return {
     name: "Valor",
     planet: "mars",
     partKey: "valor",
-    formulaDescription: isNight ? "AC + Sol - Marte" : "AC + Marte - Sol",
+    formulaDescription: isNight ? "AC + Marte - Fortuna" : "AC + Fortuna - Marte",
     longitudeRaw: total,
     ...getArabicPartData(total, asc),
   };
@@ -206,17 +206,17 @@ export function calculateLotOfVictory(
 ): ArabicPart {
   const asc = decimalToAbsoluteMin(chartData.housesData.ascendant);
   const sunDecimal = chartData.planets.find((p) => p.type === "sun")!.longitudeRaw;
-  const sun = decimalToAbsoluteMin(sunDecimal);
   const jupiter = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "jupiter")!.longitudeRaw);
+  const lotOfSpirit = Math.round(arabicParts.spirit!.longitudeRaw);
 
   const isNight = getSectLocal(sunDecimal, chartData.housesData.house);
-  const total = isNight ? calcPart(asc, sun, jupiter) : calcPart(asc, jupiter, sun);
+  const total = isNight ? calcPart(asc, lotOfSpirit, jupiter) : calcPart(asc, jupiter, lotOfSpirit);
 
   return {
     name: "Vitória",
     planet: "jupiter",
     partKey: "victory",
-    formulaDescription: isNight ? "AC + Sol - Júpiter" : "AC + Júpiter - Sol",
+    formulaDescription: isNight ? "AC + Espírito - Júpiter" : "AC + Júpiter - Espírito",
     longitudeRaw: total,
     ...getArabicPartData(total, asc),
   };
@@ -228,17 +228,17 @@ export function calculateLotOfCaptivity(
 ): ArabicPart {
   const asc = decimalToAbsoluteMin(chartData.housesData.ascendant);
   const sunDecimal = chartData.planets.find((p) => p.type === "sun")!.longitudeRaw;
-  const mars = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "mars")!.longitudeRaw);
   const saturn = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "saturn")!.longitudeRaw);
+  const lotOfFortune = Math.round(arabicParts.fortune!.longitudeRaw);
 
   const isNight = getSectLocal(sunDecimal, chartData.housesData.house);
-  const total = isNight ? calcPart(asc, mars, saturn) : calcPart(asc, saturn, mars);
+  const total = isNight ? calcPart(asc, saturn, lotOfFortune) : calcPart(asc, lotOfFortune, saturn);
 
   return {
     name: "Cativeiro",
     planet: "saturn",
     partKey: "captivity",
-    formulaDescription: isNight ? "AC + Marte - Saturno" : "AC + Saturno - Marte",
+    formulaDescription: isNight ? "AC + Saturno - Fortuna" : "AC + Fortuna - Saturno",
     longitudeRaw: total,
     ...getArabicPartData(total, asc),
   };

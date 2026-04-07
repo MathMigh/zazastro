@@ -142,11 +142,11 @@ export function calculateArabicParts(chart: BirthChart): ArabicPart[] {
 
   const fortunaTotal  = isNight ? calcPart(ascTotal, solTotal, luaTotal) : calcPart(ascTotal, luaTotal, solTotal);
   const espiritoTotal = isNight ? calcPart(ascTotal, luaTotal, solTotal) : calcPart(ascTotal, solTotal, luaTotal);
-  const amorTotal     = isNight ? calcPart(ascTotal, solTotal, venusTotal) : calcPart(ascTotal, venusTotal, solTotal);
-  const vitoriaTotal  = isNight ? calcPart(ascTotal, solTotal, jupiterTotal) : calcPart(ascTotal, jupiterTotal, solTotal);
-  const valorTotal    = isNight ? calcPart(ascTotal, solTotal, marteTotal) : calcPart(ascTotal, marteTotal, solTotal);
-  const necessTotal   = isNight ? calcPart(ascTotal, saturnoTotal, fortunaTotal) : calcPart(ascTotal, fortunaTotal, saturnoTotal);
-  const cativTotal    = isNight ? calcPart(ascTotal, marteTotal, saturnoTotal) : calcPart(ascTotal, saturnoTotal, marteTotal);
+  const amorTotal     = isNight ? calcPart(ascTotal, fortunaTotal, espiritoTotal) : calcPart(ascTotal, espiritoTotal, fortunaTotal);
+  const vitoriaTotal  = isNight ? calcPart(ascTotal, espiritoTotal, jupiterTotal) : calcPart(ascTotal, jupiterTotal, espiritoTotal);
+  const valorTotal    = isNight ? calcPart(ascTotal, marteTotal, fortunaTotal) : calcPart(ascTotal, fortunaTotal, marteTotal);
+  const necessTotal   = isNight ? calcPart(ascTotal, espiritoTotal, fortunaTotal) : calcPart(ascTotal, fortunaTotal, espiritoTotal);
+  const cativTotal    = isNight ? calcPart(ascTotal, saturnoTotal, fortunaTotal) : calcPart(ascTotal, fortunaTotal, saturnoTotal);
   
   const partsDef = [
     { name: "Parte da Fortuna", min: fortunaTotal },
