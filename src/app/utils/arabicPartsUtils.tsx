@@ -116,16 +116,16 @@ export function calculateLotOfNecessity(
   arabicParts: ArabicPartsType
 ): ArabicPart {
   const asc = decimalToAbsoluteMin(chartData.housesData.ascendant);
-  const mars = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "mars")!.longitudeRaw);
+  const lotOfFortune = Math.round(arabicParts.fortune!.longitudeRaw);
   const saturn = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "saturn")!.longitudeRaw);
 
-  const total = calcPart(asc, saturn, mars);
+  const total = calcPart(asc, lotOfFortune, saturn);
 
   return {
     name: "Necessidade",
     planet: "mercury",
     partKey: "necessity",
-    formulaDescription: "AC + Saturno - Marte",
+    formulaDescription: "AC + Fortuna - Saturno",
     longitudeRaw: total,
     ...getArabicPartData(total, asc),
   };
@@ -196,20 +196,19 @@ export function calculateLotOfCaptivity(
   arabicParts: ArabicPartsType
 ): ArabicPart {
   const asc = decimalToAbsoluteMin(chartData.housesData.ascendant);
-  const lotOfFortune = Math.round(arabicParts.fortune!.longitudeRaw);
+  const mars = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "mars")!.longitudeRaw);
   const saturn = decimalToAbsoluteMin(chartData.planets.find((p) => p.type === "saturn")!.longitudeRaw);
 
-  const total = calcPart(asc, lotOfFortune, saturn);
+  const total = calcPart(asc, saturn, mars);
 
   return {
     name: "Cativeiro",
     planet: "saturn",
     partKey: "captivity",
-    formulaDescription: "AC + Fortuna - Saturno",
+    formulaDescription: "AC + Saturno - Marte",
     longitudeRaw: total,
     ...getArabicPartData(total, asc),
   };
-
 }
 
 export function calculateBirthArchArabicPart(
