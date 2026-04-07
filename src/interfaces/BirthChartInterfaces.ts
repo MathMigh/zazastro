@@ -58,6 +58,7 @@ export interface BirthChart {
   housesData: HousesData;
   birthDate: BirthDate;
   fixedStars: FixedStar[];
+  traditionalReport?: string;
 
   // If it is a return chart, these props will be needed
   returnType?: ReturnChartType;

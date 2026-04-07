@@ -944,6 +944,32 @@ export default function BirthChart() {
         </>}
 
       {/* {_getDebugData()} */}
+
+      {birthChart?.traditionalReport && (
+        <div className="w-[90vw] md:w-[60vw] mt-8 mb-10 p-6 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
+            <h3 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              Relatório Tradicional Completo
+            </h3>
+            <button 
+              onClick={() => {
+                const blob = new Blob([birthChart.traditionalReport!], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Mapa_Natal_${profileName || 'Zazastro'}.txt`;
+                a.click();
+              }}
+              className="text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1 rounded-full text-white/70"
+            >
+              Download .txt
+            </button>
+          </div>
+          <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-indigo-100/90 overflow-x-auto max-h-[80vh] scrollbar-thin scrollbar-thumb-white/10">
+            {birthChart.traditionalReport}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }

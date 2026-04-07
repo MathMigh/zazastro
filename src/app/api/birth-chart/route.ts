@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { calculateBirthChart } from "@/app/lib/astrologyEngine";
+import { generateTraditionalReport } from "@/app/lib/traditionalReport";
 
 export async function POST(request: Request) {
   try {
@@ -13,8 +14,12 @@ export async function POST(request: Request) {
     }
 
     const chartData = await calculateBirthChart(body.birthDate);
+    const traditionalReport = generateTraditionalReport(chartData);
     
-    return NextResponse.json(chartData);
+    return NextResponse.json({
+      ...chartData,
+      traditionalReport
+    });
   } catch (error: any) {
     console.error("Erro interno ao calcular o mapa:", error);
     return NextResponse.json(
