@@ -146,8 +146,8 @@ export function calculateArabicParts(chart: BirthChart): ArabicPart[] {
     { name: "Parte do Amor", min: calcPart(ascTotal, venusTotal, solTotal) },
     { name: "Parte da Vitória", min: calcPart(ascTotal, jupiterTotal, solTotal) },
     { name: "Parte do Valor", min: calcPart(ascTotal, marteTotal, solTotal) },
-    { name: "Parte da Necessidade", min: calcPart(ascTotal, fortunaTotal, saturnoTotal) },
-    { name: "Parte do Cativeiro", min: calcPart(ascTotal, saturnoTotal, marteTotal) }
+    { name: "Parte da Necessidade", min: calcPart(ascTotal, saturnoTotal, marteTotal) },
+    { name: "Parte do Cativeiro", min: calcPart(ascTotal, fortunaTotal, saturnoTotal) }
   ];
 
   return partsDef.map(pd => {
