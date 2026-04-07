@@ -1,46 +1,31 @@
 import { BirthChart } from "@/interfaces/BirthChartInterfaces";
 import {
-  decimalToDegreesMinutes,
   getAntiscion,
   getDegreeAndSign,
-  getZodiacRuler,
-  mod360,
-  wrapZodiacLongitude,
+  toTotal,
 } from "./chartUtils";
 import { ArabicPart, ArabicPartsType } from "@/interfaces/ArabicPartInterfaces";
 
 const getGlyphOnly = true;
 
-function getDistanceFromAscendant(
-  longitudeRaw: number,
-  ascendant: number
-): number {
-  let distance = decimalToDegreesMinutes(longitudeRaw - ascendant);
+const CIRCLE_MIN = 21600;
 
-  if (distance < 0) {
-    distance += 360;
-  } else if (distance >= 360) {
-    distance -= 360;
-  }
-
-  return distance;
+function normalizeMin(min: number): number {
+  return ((min % CIRCLE_MIN) + CIRCLE_MIN) % CIRCLE_MIN;
 }
 
-function getArabicPartData(longitudeRaw: number, asc: number) {
-  const longitude = decimalToDegreesMinutes(longitudeRaw);
-  const antiscion = getAntiscion(longitudeRaw);
-  const antiscionRaw = getAntiscion(longitudeRaw, true);
-  const distanceFromASC = getDistanceFromAscendant(longitudeRaw, asc);
-  const rawDistanceFromASC = wrapZodiacLongitude(longitudeRaw - asc);
+function getArabicPartData(total: number, ascTotal: number) {
+  const antiscion = getAntiscion(total);
+  const rawDistanceFromASC = normalizeMin(total - ascTotal);
 
-  const longitudeSign = getDegreeAndSign(longitude, getGlyphOnly);
+  const longitudeSign = getDegreeAndSign(total, getGlyphOnly);
   const antiscionSign = getDegreeAndSign(antiscion, getGlyphOnly);
 
   return {
-    longitude,
+    longitude: total / 60,
     antiscion,
-    antiscionRaw,
-    distanceFromASC,
+    antiscionRaw: antiscion / 60,
+    distanceFromASC: rawDistanceFromASC / 60,
     rawDistanceFromASC,
     longitudeSign,
     antiscionSign,
@@ -48,40 +33,36 @@ function getArabicPartData(longitudeRaw: number, asc: number) {
 }
 
 export function calculateLotOfFortune(chartData: BirthChart): ArabicPart {
-  const sun = chartData.planets.find((p) => p.type === "sun")!;
-  const moon = chartData.planets.find((p) => p.type === "moon")!;
-  const asc = chartData.housesData.ascendant;
+  const sun = toTotal(chartData.planets.find((p) => p.type === "sun")!.longitudeRaw);
+  const moon = toTotal(chartData.planets.find((p) => p.type === "moon")!.longitudeRaw);
+  const asc = toTotal(chartData.housesData.ascendant);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + moon.longitudeRaw - sun.longitudeRaw
-  );
+  const total = normalizeMin(asc + moon - sun);
 
   return {
     name: "Fortuna",
     planet: "moon",
     partKey: "fortune",
     formulaDescription: "AC + Lua - Sol",
-    longitudeRaw,
-    ...getArabicPartData(longitudeRaw, asc),
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
 export function calculateLotOfSpirit(chartData: BirthChart): ArabicPart {
-  const sun = chartData.planets.find((p) => p.type === "sun")!;
-  const moon = chartData.planets.find((p) => p.type === "moon")!;
-  const asc = chartData.housesData.ascendant;
+  const sun = toTotal(chartData.planets.find((p) => p.type === "sun")!.longitudeRaw);
+  const moon = toTotal(chartData.planets.find((p) => p.type === "moon")!.longitudeRaw);
+  const asc = toTotal(chartData.housesData.ascendant);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + sun.longitudeRaw - moon.longitudeRaw
-  );
+  const total = normalizeMin(asc + sun - moon);
 
   return {
     name: "Espírito",
     planet: "sun",
     partKey: "spirit",
     formulaDescription: "AC + Sol - Lua",
-    longitudeRaw,
-    ...getArabicPartData(longitudeRaw, asc),
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
@@ -89,22 +70,19 @@ export function calculateLotOfNecessity(
   chartData: BirthChart,
   arabicParts: ArabicPartsType
 ): ArabicPart {
-  const asc = chartData.housesData.ascendant;
+  const asc = toTotal(chartData.housesData.ascendant);
+  const lotOfFortune = Math.round(arabicParts.fortune!.longitudeRaw);
+  const lotOfSpirit = Math.round(arabicParts.spirit!.longitudeRaw);
 
-  const lotOfFortune = arabicParts.fortune!;
-  const lotOfSpirit = arabicParts!.spirit!;
-
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + lotOfFortune.longitudeRaw - lotOfSpirit.longitudeRaw
-  );
+  const total = normalizeMin(asc + lotOfFortune - lotOfSpirit);
 
   return {
     name: "Necessidade",
     planet: "mercury",
     partKey: "necessity",
-    formulaDescription: "AC + Parte da Fortuna - Parte do Espírito",
-    longitudeRaw,
-    ...getArabicPartData(longitudeRaw, asc),
+    formulaDescription: "AC + Fortuna - Espírito",
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
@@ -112,21 +90,19 @@ export function calculateLotOfLove(
   chartData: BirthChart,
   arabicParts: ArabicPartsType
 ): ArabicPart {
-  const asc = chartData.housesData.ascendant;
-  const lotOfFortune = arabicParts.fortune!;
-  const lotOfSpirit = arabicParts.spirit!;
+  const sun = toTotal(chartData.planets.find((p) => p.type === "sun")!.longitudeRaw);
+  const venus = toTotal(chartData.planets.find((p) => p.type === "venus")!.longitudeRaw);
+  const asc = toTotal(chartData.housesData.ascendant);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + lotOfSpirit.longitudeRaw - lotOfFortune.longitudeRaw
-  );
+  const total = normalizeMin(asc + venus - sun);
 
   return {
     name: "Amor",
     planet: "venus",
     partKey: "love",
-    formulaDescription: "AC + Parte do Espírito - Parte da Fortuna",
-    longitudeRaw,
-    ...getArabicPartData(longitudeRaw, asc),
+    formulaDescription: "AC + Vênus - Sol",
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
@@ -134,21 +110,19 @@ export function calculateLotOfValor(
   chartData: BirthChart,
   arabicParts: ArabicPartsType
 ): ArabicPart {
-  const asc = chartData.housesData.ascendant;
-  const lotOfFortune = arabicParts.fortune!;
-  const mars = chartData.planets.find((p) => p.type === "mars")!;
+  const sun = toTotal(chartData.planets.find((p) => p.type === "sun")!.longitudeRaw);
+  const mars = toTotal(chartData.planets.find((p) => p.type === "mars")!.longitudeRaw);
+  const asc = toTotal(chartData.housesData.ascendant);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + lotOfFortune.longitudeRaw - mars.longitudeRaw
-  );
+  const total = normalizeMin(asc + mars - sun);
 
   return {
     name: "Valor",
     planet: "mars",
     partKey: "valor",
-    formulaDescription: "AC + Parte da Fortuna - Marte",
-    longitudeRaw,
-    ...getArabicPartData(longitudeRaw, asc),
+    formulaDescription: "AC + Marte - Sol",
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
@@ -156,21 +130,19 @@ export function calculateLotOfVictory(
   chartData: BirthChart,
   arabicParts: ArabicPartsType
 ): ArabicPart {
-  const asc = chartData.housesData.ascendant;
-  const lotOfSpirit = arabicParts.spirit!;
-  const jupiter = chartData.planets.find((p) => p.type === "jupiter")!;
+  const sun = toTotal(chartData.planets.find((p) => p.type === "sun")!.longitudeRaw);
+  const jupiter = toTotal(chartData.planets.find((p) => p.type === "jupiter")!.longitudeRaw);
+  const asc = toTotal(chartData.housesData.ascendant);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + jupiter.longitudeRaw - lotOfSpirit.longitudeRaw
-  );
+  const total = normalizeMin(asc + jupiter - sun);
 
   return {
     name: "Vitória",
     planet: "jupiter",
     partKey: "victory",
-    formulaDescription: "AC + Júpiter - Parte do Espírito",
-    longitudeRaw,
-    ...getArabicPartData(longitudeRaw, asc),
+    formulaDescription: "AC + Júpiter - Sol",
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
@@ -178,83 +150,68 @@ export function calculateLotOfCaptivity(
   chartData: BirthChart,
   arabicParts: ArabicPartsType
 ): ArabicPart {
-  const asc = chartData.housesData.ascendant;
-  const lotOfFortune = arabicParts.fortune!;
-  const saturn = chartData.planets.find((p) => p.type === "saturn")!;
+  const mars = toTotal(chartData.planets.find((p) => p.type === "mars")!.longitudeRaw);
+  const saturn = toTotal(chartData.planets.find((p) => p.type === "saturn")!.longitudeRaw);
+  const asc = toTotal(chartData.housesData.ascendant);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + lotOfFortune.longitudeRaw - saturn.longitudeRaw
-  );
+  const total = normalizeMin(asc + saturn - mars);
 
   return {
     name: "Cativeiro",
     planet: "saturn",
     partKey: "captivity",
-    formulaDescription: "AC + Parte da Fortuna - Saturno",
-    longitudeRaw,
-    ...getArabicPartData(longitudeRaw, asc),
+    formulaDescription: "AC + Saturno - Marte",
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
 export function calculateLotOfMarriage(chartData: BirthChart): ArabicPart {
-  const asc = chartData.housesData.ascendant;
-  const dsc = chartData.housesData.house[6];
-  const venus = chartData.planets.find((p) => p.type === "venus")!;
+  const asc = toTotal(chartData.housesData.ascendant);
+  const dsc = toTotal(chartData.housesData.house[6]);
+  const venus = toTotal(chartData.planets.find((p) => p.type === "venus")!.longitudeRaw);
 
-  const longitudeRaw = wrapZodiacLongitude(asc + dsc - venus.longitudeRaw);
-  const longitude = decimalToDegreesMinutes(longitudeRaw);
-  const zodiacRuler = getZodiacRuler(longitude);
+  const total = normalizeMin(asc + dsc - venus);
 
   return {
     name: "Casamento",
     partKey: "marriage",
     formulaDescription: "AC + DC - Vênus",
-    longitudeRaw,
-    zodiacRuler,
-    ...getArabicPartData(longitudeRaw, asc),
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
 export function calculateLotOfResignation(chartData: BirthChart): ArabicPart {
-  const asc = chartData.housesData.ascendant;
-  const saturn = chartData.planets.find((p) => p.type === "saturn")!;
-  const jupiter = chartData.planets.find((p) => p.type === "jupiter")!;
-  const sun = chartData.planets.find((p) => p.type === "sun")!;
+  const asc = toTotal(chartData.housesData.ascendant);
+  const saturn = toTotal(chartData.planets.find((p) => p.type === "saturn")!.longitudeRaw);
+  const jupiter = toTotal(chartData.planets.find((p) => p.type === "jupiter")!.longitudeRaw);
+  const sun = toTotal(chartData.planets.find((p) => p.type === "sun")!.longitudeRaw);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    saturn.longitudeRaw + jupiter.longitudeRaw - sun.longitudeRaw
-  );
-  const longitude = decimalToDegreesMinutes(longitudeRaw);
-  const zodiacRuler = getZodiacRuler(longitude);
+  const total = normalizeMin(saturn + jupiter - sun);
 
   return {
     name: "Renúncia",
     partKey: "resignation",
     formulaDescription: "Saturno + Júpiter - Sol",
-    longitudeRaw,
-    zodiacRuler,
-    ...getArabicPartData(longitudeRaw, asc),
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
 export function calculateLotOfChildren(chartData: BirthChart): ArabicPart {
-  const asc = chartData.housesData.ascendant;
-  const saturn = chartData.planets.find((p) => p.type === "saturn")!;
-  const jupiter = chartData.planets.find((p) => p.type === "jupiter")!;
+  const asc = toTotal(chartData.housesData.ascendant);
+  const saturn = toTotal(chartData.planets.find((p) => p.type === "saturn")!.longitudeRaw);
+  const jupiter = toTotal(chartData.planets.find((p) => p.type === "jupiter")!.longitudeRaw);
 
-  const longitudeRaw = wrapZodiacLongitude(
-    asc + saturn.longitudeRaw - jupiter.longitudeRaw
-  );
-  const longitude = decimalToDegreesMinutes(longitudeRaw);
-  const zodiacRuler = getZodiacRuler(longitude);
+  const total = normalizeMin(asc + saturn - jupiter);
 
   return {
     name: "Filhos",
     partKey: "children",
     formulaDescription: "AC + Saturno - Júpiter",
-    longitudeRaw,
-    zodiacRuler,
-    ...getArabicPartData(longitudeRaw, asc),
+    longitudeRaw: total,
+    ...getArabicPartData(total, asc),
   };
 }
 
@@ -262,27 +219,12 @@ export function calculateBirthArchArabicPart(
   arabicPart: ArabicPart,
   ascendant: number
 ): ArabicPart {
-  const asc = ascendant;
-  const longitudeRaw = mod360(asc + arabicPart.rawDistanceFromASC);
-  const arabicPartData = getArabicPartData(longitudeRaw, ascendant);
-
-  // console.log(
-  //   `Parte: ${arabicPart.name}, Distância do AC (cru): ${
-  //     arabicPart.rawDistanceFromASC
-  //   },
-  //   longitudeRaw: ${longitudeRaw}, transformada: ${
-  //     arabicPartData.longitudeSign
-  //   },
-  //   AC da Revolução (cru): ${asc},
-  //   AC da Revolução: ${getDegreeAndSign(decimalToDegreesMinutes(asc))},
-  //   Antiscion: ${arabicPartData.antiscion};
-  //   Antiscion (cru): ${arabicPartData.antiscionRaw},
-  //   Signo do Antiscion: ${arabicPartData.antiscionSign}`
-  // );
+  const total = normalizeMin(toTotal(ascendant) + toTotal(arabicPart.rawDistanceFromASC));
+  const data = getArabicPartData(total, toTotal(ascendant));
 
   return {
     ...arabicPart,
-    longitudeRaw,
-    ...arabicPartData,
+    ...data,
+    longitudeRaw: total
   };
 }

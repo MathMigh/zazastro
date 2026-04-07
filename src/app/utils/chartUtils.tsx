@@ -96,6 +96,18 @@ export const arabicPartKeys: (keyof ArabicPartsType)[] = [
   "children",
 ];
 
+export const TO_MIN = 60;
+export const TO_SIGN_MIN = 1800;
+export const CIRCLE_MIN = 21600;
+
+export const toTotal = (lon: number): number => {
+  if (lon > 360) return Math.round(lon);
+  const s = Math.floor(lon / 30);
+  const g = Math.floor(lon % 30);
+  const m = Math.round((lon - (s * 30 + g)) * 60);
+  return (s * TO_SIGN_MIN) + (g * TO_MIN) + m;
+};
+
 export function getSign(longitude: number, getGlyphOnly = false): string {
   const signs = [
     `${!getGlyphOnly ? "Áries " : ""}♈︎`,
@@ -111,7 +123,10 @@ export function getSign(longitude: number, getGlyphOnly = false): string {
     `${!getGlyphOnly ? "Aquário " : ""}♒︎`,
     `${!getGlyphOnly ? "Peixes " : ""}♓︎`,
   ];
-  return signs[Math.floor(longitude / 30) % 12];
+  
+  const total = toTotal(longitude);
+  const signIdx = Math.floor(total / TO_SIGN_MIN) % 12;
+  return signs[signIdx];
 }
 
 export const planesNamesByType: Record<PlanetType, string> = {
@@ -276,6 +291,8 @@ export function getAspectImage(
 
 export const formatSignColor = (stringWithSign: string): React.ReactNode => {
   const length = stringWithSign.length;
+  // Fallback se a string for menor que o esperado para conter o signo
+  if (length < 2) return <span>{stringWithSign}</span>;
   const sign = getSignGlyphUnicode(stringWithSign[length - 2]);
   const color = getSignColor(sign);
   return (
@@ -289,106 +306,61 @@ export const formatSignColor = (stringWithSign: string): React.ReactNode => {
 export const mod360 = (n: number) => ((n % 360) + 360) % 360; // garante [0 - 359.99]
 
 /**
- * Gets degrees and minutes inside a sign.
- * @param longitude The longitude value.
- * @returns Example: 124.55 Returns 4°55'♌︎ at 4.55 format.
+ * Gets degrees and minutes inside a sign. For Legacy Float input.
  */
 export function getDegreesInsideASign(longitude: number): number {
-  const previousSign = Math.floor(longitude / 30);
-  const rest = Number.parseFloat((longitude - previousSign * 30).toFixed(2));
-  const degrees = Math.floor(rest);
-  const minutes = Number.parseFloat((rest - degrees).toFixed(2));
-
-  return degrees + minutes;
+  const total = toTotal(longitude);
+  const deg = Math.floor((total % TO_SIGN_MIN) / TO_MIN);
+  const min = total % 60;
+  return deg + (min / 100);
 }
 
 /**
- * Returns the formatted longitude value with its corresponding Sign.
- * @param longitude The longitude value to be formatted.
- * @param getGlyphOnly If true, it'll show only the sign glyph without its name.
- * @returns The position at the Zodiac to that longitude.
+ * Funcao principal de formatacao: Suporta Decimais e Minutos Absolutos.
  */
 export function getDegreeAndSign(longitude: number, getGlyphOnly = false) {
-  const sign = getSign(longitude, getGlyphOnly);
-  const previousSign = Math.floor(longitude / 30);
-  const rest = Number.parseFloat((longitude - previousSign * 30).toFixed(2));
-  const degrees = Math.floor(rest);
-  let minutes = Math.floor((rest - degrees) * 100).toString();
+  const total = toTotal(longitude);
+  const sign = getSign(total, getGlyphOnly);
+  
+  const signIdx = Math.floor(total / TO_SIGN_MIN) % 12;
+  const remainingmin = total - (signIdx * TO_SIGN_MIN);
+  const deg = Math.floor(remainingmin / 60);
+  const min = remainingmin % 60;
 
-  if (minutes.length === 1) {
-    minutes = "0" + minutes;
-  }
-
-  const result = `${degrees}°${minutes}'${!getGlyphOnly ? "de " : ""}${sign}`;
-
-  return result;
+  const minStr = min.toString().padStart(2, "0");
+  return `${deg}° ${minStr}'${!getGlyphOnly ? " de " : " "}${sign}`;
 }
 
-/**
- * Returns minute-based floating point numbers (from 0 to 59).
- * @param decimal - The longitude value in decimal base.
- * @returns The longitude value in minute base.
- */
 export function decimalToDegreesMinutes(decimal: number) {
-  let degrees = Math.floor(decimal);
-  let minutes = Math.floor((decimal - degrees) * 61) / 100; // 61 pra que os números cheguem até 60
-  if (minutes === 0.6) {
-    // 60 minutos, ou seja: 1 grau
-    degrees++;
-    minutes = 0;
-  }
-
-  const result = degrees + minutes;
-  return result;
+  const total = toTotal(decimal);
+  const deg = Math.floor(total / 60);
+  const min = total % 60;
+  return deg + (min / 100);
 }
 
 export function getAntiscion(longitude: number, getRaw = false) {
-  let result = 0;
-
-  if (longitude < 180) {
-    const distance = 90 - longitude;
-    result = 90 + distance;
-  } else {
-    const distance = 270 - longitude;
-    result = 270 + distance;
-  }
-
-  result = wrapZodiacLongitude(result);
-
-  return getRaw ? result : decimalToDegreesMinutes(result);
+  const total = toTotal(longitude);
+  // Regra do 59' tradicional (soma 10799 minutos total no espelhamento)
+  const antTotal = ((32399 - total) % CIRCLE_MIN + CIRCLE_MIN) % CIRCLE_MIN;
+  
+  return getRaw ? antTotal : antTotal;
 }
 
 export function wrapZodiacLongitude(longitude: number) {
-  if (longitude < 0) {
-    return (longitude += 360);
-  } else if (longitude >= 360) {
-    return (longitude -= 360);
-  }
-
-  return longitude;
+  const total = toTotal(longitude);
+  return ((total % CIRCLE_MIN) + CIRCLE_MIN) % CIRCLE_MIN;
 }
 
 export function getZodiacRuler(longitude: number) {
-  const long = wrapZodiacLongitude(longitude);
+  const total = toTotal(longitude);
+  const signIdx = Math.floor(total / TO_SIGN_MIN) % 12;
 
   const zodiacRulers: PlanetType[] = [
-    "mars", // Aries 0 - 29
-    "venus", // Taurus 30 - 59
-    "mercury", // Gemini 60 - 89
-    "moon", // Cancer 90 - 119
-    "sun", // Leo 120 - 149
-    "mercury", // Virgo 150 - 179
-    "venus", // Libra 180 - 209
-    "mars", // Scorpio 210 - 239
-    "jupiter", // Sagittarius 240 - 269
-    "saturn", // Capricorn 270 - 299
-    "saturn", // Aquarius 300 - 329
-    "jupiter", // Pisces 330 - 359
+    "mars", "venus", "mercury", "moon", "sun", "mercury",
+    "venus", "mars", "jupiter", "saturn", "saturn", "jupiter"
   ];
 
-  const index = Math.floor(long / 30);
-
-  return zodiacRulers[index];
+  return zodiacRulers[signIdx];
 }
 
 export function extractHouseNumber(input: string): number | null {
@@ -411,38 +383,23 @@ export function convertDegMinToDecimal(deg: number, min: number) {
 export function convertDegMinNumberToDecimal(degMin: number) {
   const degrees = Math.floor(degMin);
   const minutes = Number.parseFloat(((degMin - degrees) * 100).toFixed(2));
-
   const result = degrees + minutes / 60;
-  // console.log(
-  //   `degMin: ${degMin}, degrees: ${degrees}, minutes: ${minutes}, result: ${result}`
-  // );
   return result;
 }
 
-/**
- * Returns the longitude within a degThreshold and with [0 - 59] minutes.
- */
 export const clampLongitude = (
   rawString: string,
   degThreshold: number
 ): number => {
   if (rawString.length === 0) return 0;
-
   const deg = rawString.split(".")[0];
   const min = rawString.split(".")[1];
-
   let degNumber = deg === undefined ? 0 : Number.parseInt(deg);
   let minNumber = min === undefined ? 0 : Number.parseInt(min.padEnd(2, "0"));
-  console.log(`degNumber: ${degNumber}, minNumber: ${minNumber}`);
-
   if (degNumber < 0) degNumber = 0;
   else if (degNumber > degThreshold) degNumber = degThreshold;
-
   if (minNumber > 59) minNumber = 59;
-
-  const result = degNumber + minNumber / 100;
-
-  return result;
+  return degNumber + minNumber / 100;
 };
 
 export function getReturnDateRangeString(
@@ -451,21 +408,17 @@ export function getReturnDateRangeString(
 ): string {
   const [datePart] = returnTime.split(" ");
   const [targetYear, targetMonth] = datePart.split("-").map(Number);
-
   if (returnType === "solar") {
     return `${targetYear}/${targetYear + 1}`;
   } else {
     const year = targetYear;
     const month = `${targetMonth.toString().padStart(2, "0")}`;
-
     let nextMonth: string = (targetMonth + 1).toString().padStart(2, "0");
     let nextMonthYear = year.toString();
-
     if (nextMonth === "13") {
       nextMonth = "01";
       nextMonthYear = (year + 1).toString();
     }
-
     return `${month}/${year} - ${nextMonth}/${nextMonthYear}`;
   }
 }
@@ -475,29 +428,21 @@ export function chartsAreEqual(
   chartToCompare: BirthChart
 ): boolean {
   let result = true;
-
   for (let index = 0; index < chart.planets.length; index++) {
     const planet = chart.planets[index];
     const planetToCompare = chartToCompare.planets[index];
-
     const longitudesAreEqual =
       planet.longitudeRaw === planetToCompare.longitudeRaw;
     result = result && longitudesAreEqual;
-
     if (!result) return false;
   }
-
   for (let index = 0; index < chart.housesData.house.length; index++) {
     const houseLongitude = chart.housesData.house[index];
     const houseToCompareLongitude = chartToCompare.housesData.house[index];
-
     const longitudesAreEqual = houseLongitude === houseToCompareLongitude;
-
     result = result && longitudesAreEqual;
-
     if (!result) return false;
   }
-
   return true;
 }
 
@@ -505,10 +450,8 @@ export function convertDecimalIntoDegMinString(decimal: number): string {
   const array = decimal.toString().split(".");
   const deg = array[0];
   let min = array[1];
-
   if (!min) min = "00";
   else if (min.length === 1) min = min.padEnd(2, "0") ?? "";
-
   return `${deg}°${min}'`;
 }
 
@@ -519,36 +462,29 @@ export function makeLunarDerivedChart(data: any, birthDate: BirthDate, targetDat
     birthDate,
     targetDate,
     planets: data.returnPlanets.map((planet: Planet) => {
+      const total = toTotal(planet.longitude);
       return {
         ...planet,
-        longitude: decimalToDegreesMinutes(planet.longitude),
-        antiscion: getAntiscion(planet.longitude),
-
+        longitude: total,
+        antiscion: getAntiscion(total),
         longitudeRaw: planet.longitude,
-        antiscionRaw: getAntiscion(planet.longitude, true),
+        antiscionRaw: getAntiscion(total, true),
         type: planetTypes[planet.id],
       };
     }),
     planetsWithSigns: data.returnPlanets.map((planet: Planet) => {
+      const total = toTotal(planet.longitude);
       return {
-        position: getDegreeAndSign(
-          decimalToDegreesMinutes(planet.longitude),
-          true
-        ),
-        antiscion: getDegreeAndSign(
-          getAntiscion(planet.longitude),
-          true
-        ),
+        position: getDegreeAndSign(total, true),
+        antiscion: getDegreeAndSign(getAntiscion(total), true),
       };
     }),
     housesData: {
       ...data?.returnHousesData,
       housesWithSigns: data.returnHousesData?.house.map(
         (houseLong: number) => {
-          return getDegreeAndSign(
-            decimalToDegreesMinutes(houseLong),
-            true
-          );
+          const total = toTotal(houseLong);
+          return getDegreeAndSign(total, true);
         }
       ),
     },
@@ -557,10 +493,7 @@ export function makeLunarDerivedChart(data: any, birthDate: BirthDate, targetDat
       elementType: "fixedStar",
       isAntiscion: false,
       isFromOuterChart: false,
-      longitudeSign: getDegreeAndSign(
-        decimalToDegreesMinutes(star.longitude),
-        true
-      ),
+      longitudeSign: getDegreeAndSign(toTotal(star.longitude), true),
     })),
   };
 }

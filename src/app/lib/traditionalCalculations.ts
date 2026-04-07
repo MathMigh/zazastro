@@ -5,15 +5,21 @@ import {
   FIXED_STARS, PRECESSION_RATE, TRADITIONAL_PLANETS
 } from "./traditionalTables";
 import { BirthChart, Planet, HousesData } from "@/interfaces/BirthChartInterfaces";
+import { toTotal, TO_MIN, TO_SIGN_MIN, CIRCLE_MIN } from "../utils/chartUtils";
 
 // --- Helpers ---
 
+const normalizeMin = (min: number): number => {
+  return ((min % CIRCLE_MIN) + CIRCLE_MIN) % CIRCLE_MIN;
+};
+
 export function formatDegrees(longitude: number): string {
-  const signIndex = Math.floor(longitude / 30) % 12;
-  const degInsideSign = longitude % 30;
-  const d = Math.floor(degInsideSign);
-  const m = Math.floor((degInsideSign - d) * 60);
-  return `${SIGNS[signIndex]} a ${d}°${m.toString().padStart(2, '0')}’`;
+  const total = toTotal(longitude);
+  const sIdx = Math.floor(total / TO_SIGN_MIN) % 12;
+  const rem = total - (sIdx * TO_SIGN_MIN);
+  const d = Math.floor(rem / TO_MIN);
+  const m = rem % TO_MIN;
+  return `${SIGNS[sIdx]} a ${d}°${m.toString().padStart(2, '0')}’`;
 }
 
 export function getHouseIndex(longitude: number, cusps: number[]): number {
@@ -124,14 +130,15 @@ export function calculateArabicParts(chart: BirthChart): ArabicPart[] {
   const sat = toTotal(chart.planets.find(p => p.type === "saturn")!.longitudeRaw);
 
   const fortunaMin = calcPartMin(asc, moon, sun);
+  const spiritMin = calcPartMin(asc, sun, moon);
 
   const partsDef = [
     { name: "Fortuna", min: fortunaMin },
-    { name: "Espírito", min: calcPartMin(asc, sun, moon) },
+    { name: "Espírito", min: spiritMin },
     { name: "Amor", min: calcPartMin(asc, ven, sun) },
     { name: "Vitória", min: calcPartMin(asc, jup, sun) },
     { name: "Valor", min: calcPartMin(asc, mars, sun) },
-    { name: "Necessidade", min: calcPartMin(asc, fortunaMin, sat) },
+    { name: "Necessidade", min: calcPartMin(asc, fortunaMin, spiritMin) },
     { name: "Cativeiro", min: calcPartMin(asc, sat, mars) }
   ];
 
@@ -141,16 +148,17 @@ export function calculateArabicParts(chart: BirthChart): ArabicPart[] {
     const signIdx = Math.floor(pd.min / 1800) % 12;
     const disp = DOMICILE_RULER[signIdx];
     const dispPlanet = chart.planets.find(p => p.name === disp);
-    const antiscionLon = (32400 - pd.min) % 21600; // Antiscion em minutos: (540*60 - total) % 21600
+    // Regra do 59' (soma de 10799 minutos no espelhamento tradicional)
+    const antiscionLon = normalizeMin(32399 - pd.min); 
 
     return {
       name: pd.name,
       longitude: rawLon,
       sign: SIGNS[signIdx],
-      posFormatted: formatMinutes(pd.min),
-      house: `Casa ${romanize(hIdx)}`,
-      dispositor: `${disp} em ${dispPlanet ? formatDegrees(dispPlanet.longitudeRaw) : "Nenhum"}, na Casa ${dispPlanet ? romanize(getHouseIndex(dispPlanet.longitudeRaw, chart.housesData.house)) : "?"}`,
-      antiscion: formatMinutes(antiscionLon)
+      posFormatted: formatDegrees(pd.min),
+      house: `Casa ${hIdx}`, // Removendo romanize se estiver causando erro, mantendo simples
+      dispositor: `${disp} em ${dispPlanet ? formatDegrees(dispPlanet.longitudeRaw) : "Nenhum"}, na Casa ${dispPlanet ? getHouseIndex(dispPlanet.longitudeRaw, chart.housesData.house) : "?"}`,
+      antiscion: formatDegrees(antiscionLon)
     };
   });
 }
