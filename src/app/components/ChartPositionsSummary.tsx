@@ -1,11 +1,7 @@
 "use client";
 
-import { BirthChart, Planet } from "@/interfaces/BirthChartInterfaces";
-import {
-  formatSignColor,
-  getDegreeAndSign,
-  getPlanetImage,
-} from "../utils/chartUtils";
+import { BirthChart } from "@/interfaces/BirthChartInterfaces";
+import { getPlanetImage } from "../utils/chartUtils";
 
 const HOUSE_LABELS = [
   "Casa 1 (AC)",
@@ -38,8 +34,8 @@ export default function ChartPositionsSummary({
               size: 18,
               isRetrograde: planet.isRetrograde,
             })}
-            position={formatSignColor(getDegreeAndSign(planet.longitudeRaw, true))}
-            antiscion={formatSignColor(getDegreeAndSign(planet.antiscionRaw, true))}
+            position={renderLongitude(planet.longitudeRaw)}
+            antiscion={renderLongitude(planet.antiscionRaw)}
           />
         ))}
       </SummaryCard>
@@ -49,13 +45,60 @@ export default function ChartPositionsSummary({
           <SummaryRow
             key={HOUSE_LABELS[index]}
             label={HOUSE_LABELS[index]}
-            position={formatSignColor(getDegreeAndSign(houseLongitude, true))}
-            antiscion={formatSignColor(getDegreeAndSign((540 - houseLongitude) % 360, true))}
+            position={renderLongitude(houseLongitude)}
+            antiscion={renderLongitude((540 - houseLongitude) % 360)}
             highlight={index % 3 === 0}
           />
         ))}
       </SummaryCard>
     </section>
+  );
+}
+
+const SIGN_GLYPHS = [
+  "\u2648\uFE0E",
+  "\u2649\uFE0E",
+  "\u264A\uFE0E",
+  "\u264B\uFE0E",
+  "\u264C\uFE0E",
+  "\u264D\uFE0E",
+  "\u264E\uFE0E",
+  "\u264F\uFE0E",
+  "\u2650\uFE0E",
+  "\u2651\uFE0E",
+  "\u2652\uFE0E",
+  "\u2653\uFE0E",
+];
+
+const SIGN_COLORS = [
+  "red",
+  "green",
+  "orange",
+  "blue",
+  "red",
+  "green",
+  "orange",
+  "blue",
+  "red",
+  "green",
+  "orange",
+  "blue",
+];
+
+function renderLongitude(longitude: number) {
+  const totalMinutes = ((Math.round(longitude * 60) % 21600) + 21600) % 21600;
+  const signIndex = Math.floor(totalMinutes / 1800) % 12;
+  const remainingMinutes = totalMinutes - signIndex * 1800;
+  const degree = Math.floor(remainingMinutes / 60);
+  const minute = remainingMinutes % 60;
+
+  return (
+    <>
+      <span>{degree}° {minute.toString().padStart(2, "0")}' </span>
+      <span style={{ color: SIGN_COLORS[signIndex] }}>
+        {SIGN_GLYPHS[signIndex]}
+      </span>
+    </>
   );
 }
 
