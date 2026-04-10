@@ -7,7 +7,6 @@ import { AspectsContextProvider } from "@/contexts/AspectsContext";
 import { ChartMenuContextProvider } from "@/contexts/ChartMenuContext";
 import { ProfilesContextProvider } from "@/contexts/ProfilesContext";
 import { ScreenDimensionsContextProvider } from "@/contexts/ScreenDimensionsContext";
-import Image from "next/image";
 import Footer from "./components/Footer";
 
 export default function Home() {
@@ -24,18 +23,6 @@ export default function Home() {
       <main className="relative z-10 flex min-h-screen flex-col items-center justify-between px-4 pb-8 pt-8 md:px-8">
         <div className="w-full max-w-6xl">
           <header className="mx-auto flex max-w-4xl flex-col items-center text-center">
-            <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/25 bg-white/[0.03] shadow-[0_0_50px_rgba(215,170,79,0.14)] backdrop-blur">
-              <Image
-                alt="logo"
-                src="/pisces.png"
-                width={42}
-                height={42}
-                unoptimized
-                className="opacity-90"
-              />
-            </div>
-
-            <p className="section-eyebrow mb-4">MathAstro</p>
             <h1 className="section-title text-4xl font-semibold tracking-[0.08em] text-amber-100 sm:text-5xl md:text-6xl">
               Math, o Mágico
             </h1>
@@ -48,13 +35,6 @@ export default function Home() {
               visual.
             </p>
 
-            <div className="mt-8 flex w-full max-w-xl items-center justify-center gap-4 text-amber-200/80">
-              <span className="gold-divider" />
-              <span className="text-[0.68rem] font-semibold uppercase tracking-[0.42em]">
-                Mapa Natal
-              </span>
-              <span className="gold-divider" />
-            </div>
           </header>
 
           <ProfilesContextProvider>
