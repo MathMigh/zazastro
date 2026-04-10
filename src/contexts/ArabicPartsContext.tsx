@@ -1,12 +1,6 @@
 import {
+  calculateArabicLots,
   calculateBirthArchArabicPart,
-  calculateLotOfCaptivity,
-  calculateLotOfFortune,
-  calculateLotOfLove,
-  calculateLotOfNecessity,
-  calculateLotOfSpirit,
-  calculateLotOfValor,
-  calculateLotOfVictory,
 } from "@/app/utils/arabicPartsUtils";
 import { arabicPartKeys } from "@/app/utils/chartUtils";
 import { ArabicPart, ArabicPartsType } from "@/interfaces/ArabicPartInterfaces";
@@ -74,22 +68,7 @@ export const ArabicPartsContextProvider: React.FC<{ children: ReactNode }> = ({
     birthChart: BirthChart,
     partType: ArabicPartType
   ) {
-    const fortune = calculateLotOfFortune(birthChart);
-    const spirit = calculateLotOfSpirit(birthChart);
-
-    let parts: ArabicPartsType = {
-      fortune,
-      spirit,
-    };
-
-    parts = {
-      ...parts,
-      necessity: calculateLotOfNecessity(birthChart, parts),
-      love: calculateLotOfLove(birthChart, parts),
-      valor: calculateLotOfValor(birthChart, parts),
-      victory: calculateLotOfVictory(birthChart, parts),
-      captivity: calculateLotOfCaptivity(birthChart, parts),
-    };
+    const parts = calculateArabicLots(birthChart);
 
     if (partType === "birth") {
       setArabicParts(parts);

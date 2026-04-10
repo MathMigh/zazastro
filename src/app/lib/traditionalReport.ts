@@ -1,6 +1,5 @@
 import { BirthChart, Planet } from "@/interfaces/BirthChartInterfaces";
 import {
-  calculateArabicParts,
   formatDegrees,
   getAlmuten,
   getAspects,
@@ -8,6 +7,11 @@ import {
   getHouseIndex,
   getSect,
 } from "./traditionalCalculations";
+import {
+  calculateArabicLots,
+  fromTotal,
+  ORDERED_ARABIC_PART_KEYS,
+} from "./arabicLots";
 import { AVERAGE_DAILY_SPEED, SIGNS } from "./traditionalTables";
 import { calculateTemperament } from "./traditionalTemperament";
 import {
@@ -33,6 +37,15 @@ const DOMICILE_RULER: string[] = [
 const OUTER_PLANET_TYPES = new Set(["uranus", "neptune", "pluto"]);
 const NODE_TYPES = new Set(["northNode", "southNode"]);
 const RETROGRADE_SPEED_EPSILON = 1e-6;
+
+interface TraditionalReportArabicPart {
+  name: string;
+  longitude: number;
+  posFormatted: string;
+  house: string;
+  dispositor: string;
+  antiscion: string;
+}
 
 export function generateTraditionalReport(chart: BirthChart): string {
   const sect = getSect(
@@ -96,7 +109,7 @@ export function generateTraditionalReport(chart: BirthChart): string {
 
   report += "--------------------------------------------------------------------\n";
   report += "PARTES ARABES:\n\n";
-  const parts = calculateArabicParts(chart);
+  const parts = buildTraditionalReportArabicParts(chart);
   parts.forEach((p) => {
     report += `Parte d${p.name.endsWith("o") || p.name === "Valor" || p.name === "Espirito" ? "o" : "a"} ${p.name} em ${p.posFormatted} na ${p.house}. (Dispositor: ${p.dispositor}). Antiscion: ${p.antiscion}.\n`;
   });
@@ -163,6 +176,42 @@ export function generateTraditionalReport(chart: BirthChart): string {
   report += "--------------------------------------------------------------------\n";
 
   return report;
+}
+
+function buildTraditionalReportArabicParts(
+  chart: BirthChart,
+): TraditionalReportArabicPart[] {
+  const lots = calculateArabicLots(chart);
+
+  return ORDERED_ARABIC_PART_KEYS.flatMap((key) => {
+    const lot = lots[key];
+    if (!lot) {
+      return [];
+    }
+
+    const { signo } = fromTotal(lot.longitudeRaw);
+    const ruler = DOMICILE_RULER[signo];
+    const rulerPlanet = chart.planets.find((planet) => planet.name === ruler);
+
+    return [
+      {
+        name: lot.name,
+        longitude: lot.longitude,
+        posFormatted: formatDegrees(lot.longitude),
+        house: `Casa ${getHouseIndex(lot.longitude, chart.housesData.house)}`,
+        dispositor: `${ruler} em ${
+          rulerPlanet
+            ? formatDegrees(rulerPlanet.longitudeRaw)
+            : "Nenhum"
+        }, na Casa ${
+          rulerPlanet
+            ? getHouseIndex(rulerPlanet.longitudeRaw, chart.housesData.house)
+            : "?"
+        }`,
+        antiscion: formatDegrees(lot.antiscionRaw),
+      },
+    ];
+  });
 }
 
 function formatPlanetReportLine(planet: Planet, chart: BirthChart): string {
