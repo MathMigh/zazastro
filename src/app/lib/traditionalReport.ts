@@ -188,7 +188,7 @@ function getPlanetMotionDescription(planet: Planet): string {
     return "Movimento Direto, Rápido";
   }
 
-  return "Movimento Direto";
+  return "Movimento Direto, Lento";
 }
 
 function getTraditionalPlanetNote(planet: Planet): string {
