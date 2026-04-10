@@ -254,6 +254,10 @@ function safeCalculateHouses(sw: any, julianDay: number, latitude: number, longi
 }
 // ==========================================
 
+function hasRetrogradeMotion(longitudeSpeed: number): boolean {
+  return Number.isFinite(longitudeSpeed) && longitudeSpeed < -1e-6;
+}
+
 
 export async function calculateBirthChart(birthDate: BirthDate): Promise<BirthChart> {
   const sw = await getSwe();
@@ -382,7 +386,7 @@ export async function calculateBirthChart(birthDate: BirthDate): Promise<BirthCh
   for (const p of planetMapping) {
     // 258 = SwissEphemeris | Speed flag
     const pos = safeCalculatePosition(sw, jd, p.swId, 258);
-    const isRet = pos.longitudeSpeed < 0;
+    const isRet = hasRetrogradeMotion(pos.longitudeSpeed);
     
     planets.push({
       id: idCounter++,
@@ -411,7 +415,7 @@ export async function calculateBirthChart(birthDate: BirthDate): Promise<BirthCh
     sign: getSignName(southNodeLon),
     antiscion: computeAntiscion(southNodeLon),
     antiscionRaw: computeAntiscion(southNodeLon),
-    isRetrograde: true,
+    isRetrograde: northNode.isRetrograde,
   });
 
   const housesCalc = safeCalculateHouses(sw, jd, coordinates.latitude, coordinates.longitude, "R");

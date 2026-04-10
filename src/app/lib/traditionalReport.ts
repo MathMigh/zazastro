@@ -32,6 +32,7 @@ const DOMICILE_RULER: string[] = [
 
 const OUTER_PLANET_TYPES = new Set(["uranus", "neptune", "pluto"]);
 const NODE_TYPES = new Set(["northNode", "southNode"]);
+const RETROGRADE_SPEED_EPSILON = 1e-6;
 
 export function generateTraditionalReport(chart: BirthChart): string {
   const sect = getSect(
@@ -187,12 +188,17 @@ function formatSignAndDegrees(longitude: number): { sign: string; degrees: strin
 }
 
 function getPlanetMotionDescription(planet: Planet): string {
-  if (NODE_TYPES.has(planet.type) || planet.isRetrograde || planet.longitudeSpeed < 0) {
+  if (planet.isRetrograde) {
     return "Retrógrado";
   }
 
   const averageSpeed = AVERAGE_DAILY_SPEED[planet.name];
-  if (averageSpeed && Math.abs(planet.longitudeSpeed) >= averageSpeed * 0.85) {
+  if (
+    averageSpeed &&
+    Number.isFinite(planet.longitudeSpeed) &&
+    planet.longitudeSpeed >= -RETROGRADE_SPEED_EPSILON &&
+    Math.abs(planet.longitudeSpeed) >= averageSpeed * 0.85
+  ) {
     return "Movimento Direto, Rápido";
   }
 
