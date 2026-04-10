@@ -58,6 +58,7 @@ export interface BirthChart {
   housesData: HousesData;
   birthDate: BirthDate;
   fixedStars: FixedStar[];
+  fixedStarMatches?: FixedStarMatch[];
   traditionalReport?: string;
 
   // If it is a return chart, these props will be needed
@@ -115,6 +116,26 @@ export interface FixedStar extends ChartElement {
   longitudeSign: string;
   latitude: number;
   magnitude: number;
+  nature?: string;
+  note?: string;
+  isRelevant: boolean;
+}
+
+export interface FixedStarMatch {
+  key: string;
+  pointName: string;
+  pointPlanetType?: PlanetType;
+  pointElementType: "planet" | "house";
+  pointLongitude: number;
+  starName: string;
+  starLongitude: number;
+  starLongitudeLabel: string;
+  orb: number;
+  orbLabel: string;
+  nature?: string;
+  note?: string;
+  magnitude?: number;
+  descriptor: string;
   isRelevant: boolean;
 }
 

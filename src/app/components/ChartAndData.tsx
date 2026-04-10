@@ -10,7 +10,6 @@ import { useBirthChart } from "@/contexts/BirthChartContext";
 import { useChartMenu } from "@/contexts/ChartMenuContext";
 import ArabicPartsLayout from "./ArabicPartsLayout";
 import { useArabicParts } from "@/contexts/ArabicPartsContext";
-import { useScreenDimensions } from "@/contexts/ScreenDimensionsContext";
 import { ChartDate } from "./ChartDate";
 import ChartSelectorArrows from "./ChartSelectorArrows";
 import Container from "./Container";
@@ -21,6 +20,7 @@ import {
 } from "../utils/constants";
 import Spinner from "./Spinner";
 import ChartPositionsSummary from "./ChartPositionsSummary";
+import FixedStarsTable from "./fixed-stars-table/FixedStarsTable";
 
 interface Props {
   innerChart: BirthChart;
@@ -47,7 +47,6 @@ export default function ChartAndData(props: Props) {
   } = props;
 
   const [loading, setLoading] = useState(true);
-  const { isMobileBreakPoint } = useScreenDimensions();
   const [aspectsData, setAspectsData] = useState<PlanetAspectData[]>([]);
   const itemsPerPage =
     tableItemsPerPage ?? ASPECT_TABLE_ITEMS_PER_PAGE_DEFAULT;
@@ -229,6 +228,18 @@ export default function ChartAndData(props: Props) {
     );
   }
 
+  function renderFixedStarsTable(): JSX.Element | null {
+    if (!innerChart.fixedStarMatches) {
+      return null;
+    }
+
+    return (
+      <Container className="w-full px-4! py-6! sm:px-6!">
+        <FixedStarsTable matches={innerChart.fixedStarMatches} />
+      </Container>
+    );
+  }
+
   function renderTraditionalReport(): JSX.Element | null {
     const reportChart = getTraditionalReportChart();
 
@@ -280,6 +291,7 @@ export default function ChartAndData(props: Props) {
     <div className="mt-1 mb-8 flex w-[95%] flex-col gap-6 md:w-full">
       {renderChart()}
       <ChartPositionsSummary chart={innerChart} />
+      {renderFixedStarsTable()}
       {renderArabicPartsAndAspectsTable()}
       {renderTraditionalReport()}
     </div>

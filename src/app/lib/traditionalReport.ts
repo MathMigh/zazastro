@@ -5,12 +5,15 @@ import {
   getAlmuten,
   getAspects,
   getEssentialDignities,
-  getFixedStarConjunctions,
   getHouseIndex,
   getSect,
 } from "./traditionalCalculations";
 import { AVERAGE_DAILY_SPEED, SIGNS } from "./traditionalTables";
 import { calculateTemperament } from "./traditionalTemperament";
+import {
+  buildFixedStarReportLine,
+  calculateFixedStarMatches,
+} from "./fixedStars";
 
 const DOMICILE_RULER: string[] = [
   "Marte",
@@ -109,26 +112,31 @@ export function generateTraditionalReport(chart: BirthChart): string {
 
   report += "--------------------------------------------------------------------\n";
   report += "ESTRELAS FIXAS:\n\n";
-  const starCheckList = [
-    { name: "ASC", lon: asc },
-    { name: "MC", lon: mc },
-    sun,
-    moon,
-    merc,
-    ven,
-    mars,
-    jup,
-    sat,
-  ];
+  const fixedStarMatches =
+    chart.fixedStarMatches ?? calculateFixedStarMatches(chart);
 
-  starCheckList.forEach((item) => {
-    const name = item.name;
-    const lon = "longitudeRaw" in item ? item.longitudeRaw : item.lon;
-    const stars = getFixedStarConjunctions(lon, chart.birthDate.year);
-    if (stars.length > 0) {
-      report += `${name} em ${formatDegrees(lon)}: ${stars.join("; ")};\n`;
-    }
-  });
+  if (fixedStarMatches.length === 0) {
+    report += "Nenhuma estrela fixa associada dentro da orbe de 2°.\n";
+  } else {
+    const groupedMatches = fixedStarMatches.reduce<Record<string, typeof fixedStarMatches>>(
+      (accumulator, match) => {
+        if (!accumulator[match.pointName]) {
+          accumulator[match.pointName] = [];
+        }
+
+        accumulator[match.pointName].push(match);
+        return accumulator;
+      },
+      {}
+    );
+
+    Object.entries(groupedMatches).forEach(([pointName, matches]) => {
+      const pointLongitude = matches[0]?.pointLongitude ?? 0;
+      report += `${pointName} em ${formatDegrees(pointLongitude)}: ${matches
+        .map((match) => buildFixedStarReportLine(match))
+        .join("; ")};\n`;
+    });
+  }
 
   report += "--------------------------------------------------------------------\n";
   report += "ASPECTOS ENTRE PLANETAS:\n\n";

@@ -968,7 +968,7 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     setFixedStarAspects(aspectsWithFixedStars);
     // console.log(aspectsData);
 
-    onUpdateAspectsData?.([...aspectsData, ...aspectsWithFixedStars]);
+    onUpdateAspectsData?.(aspectsData);
 
     aspectsData.forEach((aspect) => {
       if (!isAspectWithHouse(aspect)) {
@@ -2022,8 +2022,6 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
   ]);
 
   useEffect(() => {
-    console.log(fixedStarsAspects);
-
     fixedStarsAspects.forEach((asp) => {
       // 1) ângulo zodiacal original (graus → rad)
       const rawDeg = 180 - (asp.aspectedElement.longitude % 360) - 90;

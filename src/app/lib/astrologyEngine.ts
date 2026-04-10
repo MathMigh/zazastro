@@ -1,6 +1,10 @@
 import { SwissEphemeris } from "@swisseph/browser";
-import { BirthChart, BirthDate, Planet, HousesData, PlanetType, FixedStar } from "@/interfaces/BirthChartInterfaces";
+import { BirthChart, BirthDate, Planet, HousesData, PlanetType } from "@/interfaces/BirthChartInterfaces";
 import moment from "moment-timezone";
+import {
+  decorateChartWithFixedStars,
+  getDecimalYearFromDate,
+} from "./fixedStars";
 
 let swe: SwissEphemeris | null = null;
 
@@ -428,14 +432,14 @@ export async function calculateBirthChart(birthDate: BirthDate): Promise<BirthCh
     munkaseyPolarAscendant: housesCalc.polarAscendant,
   };
 
-  const fixedStars: FixedStar[] = [];
-
-  return {
+  const chart: BirthChart = {
     planets,
     housesData,
     birthDate: {
       year, month, day, time, coordinates
     },
-    fixedStars
+    fixedStars: [],
   };
+
+  return decorateChartWithFixedStars(chart, getDecimalYearFromDate(dateObj));
 }
