@@ -261,41 +261,37 @@ export default function ArabicPartsLayout(props: ArabicPartsLayoutProps) {
 
   const renderArabicPartsDefaultDetails = (): JSX.Element => {
     return <>
-      <ul className={className}>
+      <ul className={`min-w-0 ${className ?? ""}`}>
         {parts?.map((arabicPart, index) => {
           return (
-            <li key={index} className="flex flex-row items-center">
-              <div className="w-full flex flex-row justify-between">
-                <span
-                  className={`w-[14rem] md:w-[14rem] flex flex-row items-center justify-between
-                    ${partColWidth}`}
-                >
-                  <span
-                    className="w-[8rem] md:w-[9rem] flex flex-row items-center justify-between"
-                  >
-                    <span>{arabicPart?.name}</span>
-
-                    <span className="w-full flex flex-row items-center justify-end mr-4 md:mr-0 md:pr-1">
-                      {getArabicPartImage(arabicPart, {
-                        size: isMobileBreakPoint() ? 12 : 15,
-                      })}
-                      :
-                    </span>
-                  </span>
-                  <span
-                    className={`w-[4rem] md:w-[5rem] text-end ml-[-15px] md:pr-3`}
-                  >
-                    {formatSignColor(arabicPart.longitudeSign)}
+            <li
+              key={index}
+              className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-1 py-0.5 md:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]"
+            >
+              <div
+                className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 ${partColWidth ?? ""}`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate">{arabicPart?.name}</span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    {getArabicPartImage(arabicPart, {
+                      size: isMobileBreakPoint() ? 12 : 15,
+                    })}
+                    :
                   </span>
                 </span>
 
-                <span
-                  className={`w-full md:w-[12rem] flex flex-row items-center pl-2 gap-1 ${antisciaColWidth}`}
-                >
-                  Antiscion:
-                  <span className="w-[4rem] md:w-full text-end">
-                    {formatSignColor(arabicPart.antiscionSign)}
-                  </span>
+                <span className="text-right whitespace-nowrap">
+                  {formatSignColor(arabicPart.longitudeSign)}
+                </span>
+              </div>
+
+              <div
+                className={`grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 ${antisciaColWidth ?? ""}`}
+              >
+                <span className="shrink-0 whitespace-nowrap">Antiscion:</span>
+                <span className="text-right whitespace-nowrap">
+                  {formatSignColor(arabicPart.antiscionSign)}
                 </span>
               </div>
             </li>
