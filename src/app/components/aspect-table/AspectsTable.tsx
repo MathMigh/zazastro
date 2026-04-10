@@ -5,7 +5,6 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import {
   angularLabels,
-  caldaicOrder,
   decimalToDegreesMinutes,
   extractHouseNumber,
   fixedNames,
@@ -26,7 +25,6 @@ import AspectTableFilterButton, {
 import {
   AspectDistance,
   AspectDistanceTypeInterface,
-  ElementLongitudeParameterType,
   TableFilterOptions,
   ElementFilterNode,
 } from "@/interfaces/AspectTableInterfaces";
@@ -36,6 +34,11 @@ import InfoPopup from "./InfoPopup";
 import { SkeletonTable } from "../skeletons";
 import { SKELETON_LOADER_TIME } from "@/app/utils/constants";
 import { useBirthChart } from "@/contexts/BirthChartContext";
+import {
+  getAspectAngleFromType,
+  getTraditionalAspectOrbFromLongitudes,
+  isApplyingByMotion,
+} from "@/app/lib/aspectDynamics";
 
 export default function AspectsTable({
   aspects,
@@ -240,11 +243,14 @@ export default function AspectsTable({
       aspect.aspectedElement.elementType === "fixedStar"
         ? aspect.aspectedElement.longitude
         : getElementRawLongitude(aspect.aspectedElement);
-    const _1stSignLong = getDegreesInsideASign(_1stElementRawLongitude);
-    const _2ndSignLong = getDegreesInsideASign(_2ndElementRawLongitude);
-
     const numericDistance = Number.parseFloat(
-      decimalToDegreesMinutes(Math.abs(_1stSignLong - _2ndSignLong)).toFixed(2)
+      decimalToDegreesMinutes(
+        getTraditionalAspectOrbFromLongitudes(
+          _1stElementRawLongitude,
+          _2ndElementRawLongitude,
+          aspect.aspectType
+        )
+      ).toFixed(2)
     );
 
     distanceValues.push({ key: aspect.key, distance: numericDistance });
@@ -262,110 +268,32 @@ export default function AspectsTable({
     return `${deg}°${min ?? "00"}'`;
   }
 
-  function getFastestPlanetFromAspect(
-    aspect: PlanetAspectData
-  ): AspectedElement {
-    const firstIndex = caldaicOrder.findIndex(
-      (planet) => planet === (aspect.element.name as PlanetType)
-    );
+  function getElementLongitudeSpeed(element: AspectedElement): number {
+    if (element.elementType !== "planet") {
+      return 0;
+    }
 
-    const secondIndex = caldaicOrder.findIndex(
-      (planet) => planet === (aspect.aspectedElement.name as PlanetType)
-    );
+    const planetInfo = getPlanetInfo(element);
+    const speed = planetInfo?.longitudeSpeed ?? 0;
 
-    if (secondIndex < firstIndex) return aspect.aspectedElement;
-
-    return aspect.element;
-  }
-
-  /**
-   * Get element from aspect with the smallest or biggest longitude.
-   */
-  function getElementWithLongitudeFromAspect(
-    aspect: PlanetAspectData,
-    smallestOrBiggest: ElementLongitudeParameterType
-  ): AspectedElement {
-    const _1stSignLong = getDegreesInsideASign(
-      getElementRawLongitude(aspect.element)
-    );
-
-    const _2ndSignLong = getDegreesInsideASign(
-      getElementRawLongitude(aspect.aspectedElement)
-    );
-
-    const matchSecondElementLogic =
-      smallestOrBiggest === "smallest"
-        ? _2ndSignLong < _1stSignLong
-        : _2ndSignLong > _1stSignLong;
-
-    if (matchSecondElementLogic) return aspect.aspectedElement;
-
-    return aspect.element;
-  }
-
-  function getPlanetFromAspect(aspect: PlanetAspectData): AspectedElement {
-    if (aspect.element.elementType === "planet") return aspect.element;
-
-    return aspect.aspectedElement;
+    return element.isAntiscion ? -speed : speed;
   }
 
   function getAspectDistanceType(aspect: PlanetAspectData): string {
     const applicative = "A";
     const separative = "S";
-    let result: string;
-
-    if (
-      aspect.element.elementType !== "planet" &&
-      aspect.aspectedElement.elementType !== "planet"
-    )
-      result = applicative;
-
-    if (
-      aspect.element.elementType === "planet" &&
-      aspect.aspectedElement.elementType === "planet"
-    ) {
-      const fastestPlanet = getFastestPlanetFromAspect(aspect);
-      const planetSmallestLongInfo = getPlanetInfo(
-        getElementWithLongitudeFromAspect(aspect, "smallest")
-      );
-
-      const planetBiggestLongInfo = getPlanetInfo(
-        getElementWithLongitudeFromAspect(aspect, "biggest")
-      );
-
-      if (
-        planetSmallestLongInfo?.isRetrograde &&
-        planetBiggestLongInfo?.isRetrograde
-      ) {
-        if (planetSmallestLongInfo.type === fastestPlanet.name)
-          result = separative;
-        else result = applicative;
-      }
-
-      if (planetSmallestLongInfo?.type === fastestPlanet.name) {
-        if (planetSmallestLongInfo.isRetrograde) result = separative;
-        else result = applicative;
-      } else {
-        if (planetBiggestLongInfo?.isRetrograde) result = applicative;
-        else result = separative;
-      }
-    } else {
-      // planet w/ house or lot
-      const planetFromAspect = getPlanetFromAspect(aspect);
-      const planetInfo = getPlanetInfo(planetFromAspect);
-      const elWithSmallestLong = getElementWithLongitudeFromAspect(
-        aspect,
-        "smallest"
-      );
-
-      if (planetInfo?.type === elWithSmallestLong.name) {
-        if (planetInfo.isRetrograde) result = separative;
-        else result = applicative;
-      } else {
-        if (planetInfo?.isRetrograde) result = applicative;
-        else result = separative;
-      }
-    }
+    const result = isApplyingByMotion({
+      firstLongitude: getElementRawLongitude(aspect.element),
+      firstSpeed: getElementLongitudeSpeed(aspect.element),
+      secondLongitude:
+        aspect.aspectedElement.elementType === "fixedStar"
+          ? aspect.aspectedElement.longitude
+          : getElementRawLongitude(aspect.aspectedElement),
+      secondSpeed: getElementLongitudeSpeed(aspect.aspectedElement),
+      aspectAngle: getAspectAngleFromType(aspect.aspectType),
+    })
+      ? applicative
+      : separative;
 
     distanceTypes.push({
       key: aspect.key,

@@ -1,11 +1,21 @@
 import { 
   SIGNS, SIGN_ELEMENT, TRIPLICITY_RULERS, EGYPTIAN_TERMS, FACES,
   DOMICILE_RULER, EXALTATION, FALL, DETRIMENT, 
-  AVERAGE_DAILY_SPEED, HOUSE_SCORES, HOUSE_TYPE, JUBILEE_HOUSE,
-  FIXED_STARS, PRECESSION_RATE, TRADITIONAL_PLANETS
+  FIXED_STARS, PRECESSION_RATE
 } from "./traditionalTables";
-import { BirthChart, Planet, HousesData } from "@/interfaces/BirthChartInterfaces";
+import {
+  BirthChart,
+  PlanetType,
+} from "@/interfaces/BirthChartInterfaces";
 import { toTotal, TO_MIN, TO_SIGN_MIN, CIRCLE_MIN } from "../utils/chartUtils";
+import {
+  resolveTraditionalAspect,
+  TraditionalAspectParticipant,
+} from "./aspectDynamics";
+import {
+  calculateArabicLots,
+  ORDERED_ARABIC_PART_KEYS,
+} from "./arabicLots";
 
 // --- Helpers ---
 
@@ -225,78 +235,206 @@ function formatOrbe(deg: number): string {
   return `${d}°${m.toString().padStart(2, '0')}'`;
 }
 
+const ASPECT_LABELS: Record<string, string> = {
+  conjunction: "conjun\u00e7\u00e3o",
+  sextile: "sextil",
+  square: "quadratura",
+  trine: "tr\u00edgono",
+  opposition: "oposi\u00e7\u00e3o",
+};
+
+interface ReportAspectParticipant extends TraditionalAspectParticipant {
+  name: string;
+}
+
+interface ReportAspectLine {
+  line: string;
+  orbDistance: number;
+}
+
+function buildPlanetAspectParticipants(
+  chart: BirthChart
+): ReportAspectParticipant[] {
+  return chart.planets.map((planet) => ({
+    name: planet.name,
+    longitude: planet.longitudeRaw,
+    speed: planet.longitudeSpeed,
+    elementType: "planet",
+    planetType: planet.type,
+  }));
+}
+
+function getHouseAspectName(index: number): string {
+  if (index === 0) return "Ascendente (AC)";
+  if (index === 3) return "Fundo do C\u00e9u (IC)";
+  if (index === 6) return "Descendente (DC)";
+  if (index === 9) return "Meio do C\u00e9u (MC)";
+
+  return `Casa ${index + 1}`;
+}
+
+function buildHouseAspectParticipants(
+  chart: BirthChart
+): ReportAspectParticipant[] {
+  return chart.housesData.house.map((longitude, index) => ({
+    name: getHouseAspectName(index),
+    longitude,
+    elementType: "house",
+  }));
+}
+
+function getArabicPartDisplayName(partKey: string): string {
+  if (partKey === "fortune") return "Parte da Fortuna";
+  if (partKey === "spirit") return "Parte do Esp\u00edrito";
+  if (partKey === "necessity") return "Parte da Necessidade";
+  if (partKey === "love") return "Parte do Amor";
+  if (partKey === "valor") return "Parte do Valor";
+  if (partKey === "victory") return "Parte da Vit\u00f3ria";
+
+  return "Parte do Cativeiro";
+}
+
+function buildArabicPartAspectParticipants(
+  chart: BirthChart
+): ReportAspectParticipant[] {
+  const lots = calculateArabicLots(chart);
+
+  return ORDERED_ARABIC_PART_KEYS.flatMap((partKey) => {
+    const lot = lots[partKey];
+    if (!lot) {
+      return [];
+    }
+
+    return [
+      {
+        name: getArabicPartDisplayName(partKey),
+        longitude: lot.longitude,
+        elementType: "arabicPart",
+      } satisfies ReportAspectParticipant,
+    ];
+  });
+}
+
+function isOuterPlanetOrNode(planetType?: PlanetType): boolean {
+  if (!planetType) {
+    return false;
+  }
+
+  return (
+    planetType === "uranus" ||
+    planetType === "neptune" ||
+    planetType === "pluto" ||
+    planetType === "northNode" ||
+    planetType === "southNode"
+  );
+}
+
+function shouldSkipAspectPair(
+  firstParticipant: ReportAspectParticipant,
+  secondParticipant: ReportAspectParticipant
+): boolean {
+  if (
+    firstParticipant.elementType === "house" &&
+    secondParticipant.elementType === "house"
+  ) {
+    return true;
+  }
+
+  if (
+    firstParticipant.elementType === "arabicPart" &&
+    secondParticipant.elementType === "arabicPart"
+  ) {
+    return true;
+  }
+
+  if (
+    firstParticipant.elementType === "arabicPart" &&
+    secondParticipant.elementType === "planet" &&
+    isOuterPlanetOrNode(secondParticipant.planetType)
+  ) {
+    return true;
+  }
+
+  if (
+    secondParticipant.elementType === "arabicPart" &&
+    firstParticipant.elementType === "planet" &&
+    isOuterPlanetOrNode(firstParticipant.planetType)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function buildAspectLine(
+  firstParticipant: ReportAspectParticipant,
+  secondParticipant: ReportAspectParticipant
+): ReportAspectLine | null {
+  if (shouldSkipAspectPair(firstParticipant, secondParticipant)) {
+    return null;
+  }
+
+  const aspectMatch = resolveTraditionalAspect(
+    firstParticipant,
+    secondParticipant
+  );
+
+  if (!aspectMatch) {
+    return null;
+  }
+
+  return {
+    line: `${firstParticipant.name} ${ASPECT_LABELS[aspectMatch.aspectType]} ${secondParticipant.name} - ${formatOrbe(aspectMatch.orbDistance)} ${aspectMatch.applying ? "Aplicativo" : "Separativo"}.`,
+    orbDistance: aspectMatch.orbDistance,
+  };
+}
+
+function collectAspectLines(
+  firstParticipants: ReportAspectParticipant[],
+  secondParticipants: ReportAspectParticipant[],
+  sameCollection = false
+): string[] {
+  const lines: ReportAspectLine[] = [];
+
+  for (let firstIndex = 0; firstIndex < firstParticipants.length; firstIndex += 1) {
+    const firstParticipant = firstParticipants[firstIndex];
+    const startIndex = sameCollection ? firstIndex + 1 : 0;
+
+    for (
+      let secondIndex = startIndex;
+      secondIndex < secondParticipants.length;
+      secondIndex += 1
+    ) {
+      const secondParticipant = secondParticipants[secondIndex];
+      const aspectLine = buildAspectLine(firstParticipant, secondParticipant);
+
+      if (aspectLine) {
+        lines.push(aspectLine);
+      }
+    }
+  }
+
+  lines.sort((firstLine, secondLine) => {
+    return firstLine.orbDistance - secondLine.orbDistance;
+  });
+
+  return lines.map((entry) => entry.line);
+}
+
 export function getAspects(chart: BirthChart) {
-  const aspects: string[] = [];
-  const planets = chart.planets.filter(p => TRADITIONAL_PLANETS.includes(p.name) || p.type === "neptune"); // Neptune added as per user request
+  const planets = buildPlanetAspectParticipants(chart);
+  const houses = buildHouseAspectParticipants(chart);
   
-  // Also include angles and parts?
-  // Let's do planet-planet first
-  for (let i = 0; i < planets.length; i++) {
-    for (let j = i + 1; j < planets.length; j++) {
-      const p1 = planets[i];
-      const p2 = planets[j];
-      const asp = calculateAspect(p1, p2);
-      if (asp) aspects.push(asp);
-    }
-  }
+  const arabicParts = buildArabicPartAspectParticipants(chart);
 
-  // Neptune-MC etc
-  const mcLon = chart.housesData.mc;
-  const nep = chart.planets.find(p => p.type === "neptune");
-  if (nep) {
-    const mcAsp = calculateAspectToDegree(nep, "Meio do Céu (MC)", mcLon);
-    if (mcAsp) aspects.push(mcAsp);
-    const icLon = (mcLon + 180) % 360;
-    const icAsp = calculateAspectToDegree(nep, "Fundo do Céu (IC)", icLon);
-    if (icAsp) aspects.push(icAsp);
-  }
+  return [
+    ...collectAspectLines(planets, planets, true),
+    ...collectAspectLines(planets, houses),
 
-  return aspects;
-}
-
-function calculateAspect(p1: Planet, p2: Planet): string | null {
-  const diff = Math.abs(p1.longitudeRaw - p2.longitudeRaw);
-  const d = diff > 180 ? 360 - diff : diff;
-  
-  const types = [
-    { name: "conjunção", deg: 0 },
-    { name: "sextil", deg: 60 },
-    { name: "quadratura", deg: 90 },
-    { name: "trígono", deg: 120 },
-    { name: "oposição", deg: 180 }
+    ...collectAspectLines(planets, arabicParts),
+    ...collectAspectLines(arabicParts, houses),
   ];
-
-  for (const t of types) {
-    const orbe = Math.abs(d - t.deg);
-    if (orbe <= 5.0) {
-      // Very crude applying/separating: if faster planet behind slower and approaching
-      // In a real engine we'd check speeds.
-      const isApplying = true; // Placeholder, real logic needs speed vectors
-      return `${p1.name} ${t.name} ${p2.name} – ${formatOrbe(orbe)} ${isApplying ? "Aplicativo" : "Separativo"}.`;
-    }
-  }
-  return null;
 }
-
-function calculateAspectToDegree(p: Planet, targetName: string, targetLon: number): string | null {
-  const diff = Math.abs(p.longitudeRaw - targetLon);
-  const d = diff > 180 ? 360 - diff : diff;
-  const types = [
-    { name: "conjunção", deg: 0 },
-    { name: "oposição", deg: 180 },
-    { name: "trígono", deg: 120 },
-    { name: "sextil", deg: 60 },
-    { name: "quadratura", deg: 90 }
-  ];
-  for (const t of types) {
-    const orbe = Math.abs(d - t.deg);
-    if (orbe <= 3.0) {
-      return `${p.name} ${t.name} ${targetName} – ${formatOrbe(orbe)} Separativo.`;
-    }
-  }
-  return null;
-}
-
 export function getEssentialDignities(lon: number, planetName: string, sect: "Diurno" | "Noturno"): string {
   const signIdx = Math.floor(lon / 30) % 12;
   const deg = lon % 30;

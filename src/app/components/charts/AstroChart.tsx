@@ -10,7 +10,6 @@ import {
   getDegreesInsideASign,
   getSign,
   mod360,
-  signsGlpyphs,
 } from "../../utils/chartUtils";
 import { FixedStar } from "@/interfaces/BirthChartInterfaces";
 import {
@@ -21,7 +20,6 @@ import {
   ChartElementOverlap,
   ElementOverlapLongitudeAndOffset,
   ElementOverlapPosition,
-  OrbCalculationOrientation,
   PlanetAspectData,
 } from "@/interfaces/AstroChartInterfaces";
 import AstroChartMenu from "../menus/AstroChartMenu";
@@ -29,6 +27,13 @@ import { useScreenDimensions } from "@/contexts/ScreenDimensionsContext";
 import ReturnSelectorArrows from "../ReturnSelectorArrows";
 import { useChartMenu } from "@/contexts/ChartMenuContext";
 import { useBirthChart } from "@/contexts/BirthChartContext";
+import {
+  getAbsoluteAngularDistance,
+  getTraditionalAspectOrbFromLongitudes,
+  resolveTraditionalAspect,
+  TraditionalAspectParticipant,
+} from "@/app/lib/aspectDynamics";
+import { ArabicPartsType } from "@/interfaces/ArabicPartInterfaces";
 
 const ASPECTS: Aspect[] = [
   { type: "conjunction", angle: 0 },
@@ -458,20 +463,6 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     return true;
   }
 
-  function aspectCanBeUsed(element: ChartElement, aspect: Aspect): boolean {
-    if (element.elementType === "arabicPart") {
-      return aspect.type === "conjunction" || aspect.type === "opposition";
-    } else if (element.isAntiscion) {
-      return aspect.type === "conjunction" || aspect.type === "opposition";
-    } else if (element.elementType === "house")
-      return aspect.type !== "sextile";
-    else if (element.elementType === "planet" && !isTraditionalPlanet(element)) {
-      return aspect.type === "conjunction";
-    }
-
-    return true;
-  }
-
   function generateAspectKey(
     element: ChartElement,
     aspectedElement: ChartElement,
@@ -502,112 +493,6 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     return `${elementKey}-${aspect.type}-${aspectedElementKey}`;
   }
 
-  function aspectAlreadyRegistered(
-    data: PlanetAspectData[],
-    element: ChartElement,
-    aspectedElement: ChartElement,
-    aspect: Aspect
-  ): boolean {
-    const invertedKey = generateAspectKey(aspectedElement, element, aspect);
-
-    const foundAspect = data.find((asp) => asp.key === invertedKey);
-    return foundAspect !== undefined;
-  }
-
-  function getAspectLimitLongitude(
-    valueToCheck: number,
-    orb: number,
-    orientation: OrbCalculationOrientation
-  ): number {
-    const valueSign = getSign(valueToCheck, true);
-    let limit =
-      orientation === "upper" ? valueToCheck + orb : valueToCheck - orb;
-    const limitSign = getSign(limit, true);
-
-    if (valueSign !== limitSign) {
-      const signIndex = signsGlpyphs.indexOf(valueSign);
-      limit = signIndex * 30 + (orientation === "upper" ? 29.59 : 0);
-
-      // console.log(
-      //   `valueSign: ${valueSign}, limitSign: ${limitSign}, limit is ${limit}`
-      // );
-      return limit;
-    }
-
-    return limit;
-  }
-
-  function getAspectOrb(
-    element: ChartElement,
-    aspectedElement: ChartElement,
-    aspect: Aspect
-  ): number {
-    if (aspectedElement.elementType === "fixedStar") {
-      const fixedStar = aspectedElement as FixedStar;
-
-      if (fixedStar.magnitude >= 3) return 1;
-      if (fixedStar.magnitude < 3) return 2;
-    }
-
-    if (
-      (element.elementType === "arabicPart" &&
-        aspectedElement.elementType !== "house") ||
-      (element.elementType !== "house" &&
-        aspectedElement.elementType === "arabicPart")
-    )
-      // some of them is arabic part and the other isn't house, so may be arabicPart or a planet,
-      // so the orb will be only 1.1 degree
-      return 1.1;
-    else if (
-      (element.elementType === "house" ||
-        aspectedElement.elementType === "house") &&
-      aspect.type === "conjunction"
-    )
-      return 5; // houses cusps
-
-    return 3; // default orb for planets and other house aspects
-  }
-
-  function elementIsEqualsTo(
-    element: ChartElement,
-    elToCheck: ChartElement
-  ): boolean {
-    const firstName = element.isAntiscion
-      ? element.name.replace(fixedNames.antiscionName, "")
-      : element.name;
-    const secondName = elToCheck.isAntiscion
-      ? elToCheck.name.replace(fixedNames.antiscionName, "")
-      : elToCheck.name;
-
-    let result = firstName === secondName;
-
-    if (result) {
-      result =
-        (element.isFromOuterChart && elToCheck.isFromOuterChart) ||
-        (!element.isFromOuterChart && !elToCheck.isFromOuterChart);
-      return result;
-    }
-
-    return result;
-  }
-
-  function aspectNotRenderedYet(
-    aspectsData: PlanetAspectData[],
-    element: ChartElement,
-    elToCheck: ChartElement,
-    aspectToCheck: Aspect
-  ): boolean {
-    if (element.isAntiscion && elToCheck.isAntiscion)
-      // is both are antiscion, the aspect has already been rendered into their normal position
-      return false;
-
-    const aspect = aspectsData.find(
-      (asp) => asp.key === generateAspectKey(element, elToCheck, aspectToCheck)
-    );
-
-    return aspect === undefined;
-  }
-
   function bothElementsAreHouses(
     element: ChartElement,
     elToCheck: ChartElement
@@ -618,42 +503,6 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     if (_1stElementIsHouse) return _2ndElementIsHouse;
 
     return false;
-  }
-
-  function aspectElementsAreInProperSigns(
-    element: ChartElement,
-    elToCheck: ChartElement,
-    aspect: Aspect
-  ): boolean {
-    const _1stElementSign = getSign(element.longitude, true);
-    const _2ndElementSign = getSign(elToCheck.longitude, true);
-    const _1stSignIndex = signsGlpyphs.indexOf(_1stElementSign);
-    let expected2ndSign = _1stElementSign;
-
-    if (aspect.type === "conjunction") {
-      return _1stElementSign === _2ndElementSign;
-    } else {
-      let aspectOffset = 0;
-
-      if (aspect.type === "opposition") aspectOffset = 6;
-      else if (aspect.type === "trine") aspectOffset = 4;
-      else if (aspect.type === "square") aspectOffset = 3;
-      else if (aspect.type === "sextile") aspectOffset = 2;
-
-      expected2ndSign = signsGlpyphs.find((_, index) => {
-        return (_1stSignIndex + aspectOffset) % 12 === index;
-      })!;
-
-      if (aspect.type !== "opposition") {
-        expected2ndSign +=
-          ", " +
-          signsGlpyphs.find((_, index) => {
-            return (_1stSignIndex - aspectOffset) % 12 === index;
-          })!;
-      }
-
-      return expected2ndSign.includes(_2ndElementSign);
-    }
   }
 
   function isAspectBetweenTransaturninesAndArabicParts(element: ChartElement, elToCheck: ChartElement): boolean {
@@ -669,79 +518,164 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     return false;
   }
 
+  function getChartElementRawLongitude(element: ChartElement): number {
+    if (element.elementType === "planet") {
+      const chartPlanets = element.isFromOuterChart ? outerPlanets : planets;
+      const planet = chartPlanets?.find(
+        (candidate) =>
+          candidate.id === element.id || candidate.type === element.planetType
+      );
+
+      if (!planet) {
+        return element.longitude;
+      }
+
+      return element.isAntiscion ? planet.antiscionRaw : planet.longitudeRaw;
+    }
+
+    if (element.elementType === "house") {
+      const chartHouses = element.isFromOuterChart ? outerHouses : housesData;
+      const houseIndex = Number.parseInt(
+        element.name.split("-").at(-1) ?? "",
+        10
+      );
+
+      if (
+        !chartHouses ||
+        !Number.isInteger(houseIndex) ||
+        houseIndex < 0 ||
+        houseIndex >= chartHouses.house.length
+      ) {
+        return element.longitude;
+      }
+
+      return chartHouses.house[houseIndex] ?? element.longitude;
+    }
+
+    if (element.elementType === "arabicPart") {
+      const lots: ArabicPartsType | undefined = element.isFromOuterChart
+        ? outerArabicParts
+        : arabicParts;
+      const lotKey = element.name
+        .replace(`${fixedNames.outerKeyPrefix}-`, "")
+        .replace(
+          `-${fixedNames.antiscionName}`,
+          ""
+        ) as keyof ArabicPartsType;
+      const lot = lots?.[lotKey];
+
+      if (!lot) {
+        return element.longitude;
+      }
+
+      return element.isAntiscion ? lot.antiscionRaw : lot.longitudeRaw;
+    }
+
+    return element.longitude;
+  }
+
+  function getChartElementSpeed(element: ChartElement): number {
+    if (element.elementType !== "planet") {
+      return 0;
+    }
+
+    const chartPlanets = element.isFromOuterChart ? outerPlanets : planets;
+    const planet = chartPlanets?.find(
+      (candidate) =>
+        candidate.id === element.id || candidate.type === element.planetType
+    );
+    const speed = planet?.longitudeSpeed ?? 0;
+
+    return element.isAntiscion ? -speed : speed;
+  }
+
+  function getTraditionalAspectParticipant(
+    element: ChartElement
+  ): TraditionalAspectParticipant {
+    return {
+      longitude: getChartElementRawLongitude(element),
+      speed: getChartElementSpeed(element),
+      elementType: element.elementType,
+      planetType: element.planetType,
+      isAntiscion: element.isAntiscion,
+    };
+  }
+
+  function getFixedStarOrb(star: FixedStar): number {
+    if (star.magnitude >= 3) {
+      return 1;
+    }
+
+    return 2;
+  }
+
   function getAspects(elements: ChartElement[]): PlanetAspectData[] {
     const aspectsData: PlanetAspectData[] = [];
     const aspectableElements = elements.filter((el) => isAspectableElement(el));
 
-    aspectableElements.forEach((element) => {
-      ASPECTS.forEach((aspect) => {
-        if (aspectCanBeUsed(element, aspect)) {
-          const elementsWithAspect = aspectableElements.filter((elToCheck) => {
-            if (
-              !elementIsEqualsTo(element, elToCheck) &&
-              !bothElementsAreHouses(element, elToCheck) &&
-              !isAspectBetweenTransaturninesAndArabicParts(element, elToCheck) &&
-              aspectCanBeUsed(elToCheck, aspect) &&
-              aspectNotRenderedYet(aspectsData, element, elToCheck, aspect) &&
-              aspectElementsAreInProperSigns(element, elToCheck, aspect) &&
-              !elementsFromDifferentChartsWithIrrelevantAspect(element, elToCheck, aspect)
-            ) {
-              const orb = getAspectOrb(element, elToCheck, aspect);
-              const valToCheck = mod360(element.longitude + aspect.angle);
+    for (let index = 0; index < aspectableElements.length; index += 1) {
+      const element = aspectableElements[index];
 
-              const lowerLimit = getAspectLimitLongitude(
-                mod360(elToCheck.longitude),
-                orb,
-                "lower"
-              );
-              const upperLimit = getAspectLimitLongitude(
-                mod360(elToCheck.longitude),
-                orb,
-                "upper"
-              );
+      for (
+        let compareIndex = index + 1;
+        compareIndex < aspectableElements.length;
+        compareIndex += 1
+      ) {
+        const elToCheck = aspectableElements[compareIndex];
 
-              return valToCheck >= lowerLimit && valToCheck <= upperLimit;
-            }
-          });
-
-          if (elementsWithAspect.length > 0) {
-            elementsWithAspect.forEach((elWithAsp) => {
-              if (
-                !aspectAlreadyRegistered(
-                  aspectsData,
-                  element,
-                  elWithAsp,
-                  aspect
-                )
-              ) {
-                aspectsData.push({
-                  aspectType: aspect.type,
-                  element: {
-                    name: element.planetType ?? element.name,
-                    longitude: element.longitude,
-                    elementType: element.elementType,
-                    isFromOuterChart: element.isFromOuterChart!,
-                    isAntiscion: element.isAntiscion,
-                    isRetrograde: element.isRetrograde,
-                  },
-                  aspectedElement: {
-                    name: elWithAsp.planetType ?? elWithAsp.name,
-                    longitude: elWithAsp.longitude,
-                    elementType: elWithAsp.elementType,
-                    isFromOuterChart: elWithAsp.isFromOuterChart!,
-                    isAntiscion: elWithAsp.isAntiscion,
-                    isRetrograde: elWithAsp.isRetrograde,
-                  },
-                  key: generateAspectKey(element, elWithAsp, aspect),
-                });
-              }
-            });
-          }
+        if (
+          bothElementsAreHouses(element, elToCheck) ||
+          isAspectBetweenTransaturninesAndArabicParts(element, elToCheck)
+        ) {
+          continue;
         }
-      });
-    });
 
-    // console.log(aspectsData);
+        const aspectMatch = resolveTraditionalAspect(
+          getTraditionalAspectParticipant(element),
+          getTraditionalAspectParticipant(elToCheck)
+        );
+
+        if (!aspectMatch) {
+          continue;
+        }
+
+        const aspect: Aspect = {
+          type: aspectMatch.aspectType,
+          angle: aspectMatch.aspectAngle,
+        };
+
+        if (
+          elementsFromDifferentChartsWithIrrelevantAspect(
+            element,
+            elToCheck,
+            aspect
+          )
+        ) {
+          continue;
+        }
+
+        aspectsData.push({
+          aspectType: aspect.type,
+          element: {
+            name: element.planetType ?? element.name,
+            longitude: getChartElementRawLongitude(element),
+            elementType: element.elementType,
+            isFromOuterChart: element.isFromOuterChart!,
+            isAntiscion: element.isAntiscion,
+            isRetrograde: element.isRetrograde,
+          },
+          aspectedElement: {
+            name: elToCheck.planetType ?? elToCheck.name,
+            longitude: getChartElementRawLongitude(elToCheck),
+            elementType: elToCheck.elementType,
+            isFromOuterChart: elToCheck.isFromOuterChart!,
+            isAntiscion: elToCheck.isAntiscion,
+            isRetrograde: elToCheck.isRetrograde,
+          },
+          key: generateAspectKey(element, elToCheck, aspect),
+        });
+      }
+    }
 
     return aspectsData;
   }
@@ -759,58 +693,41 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
     const conjunction: Aspect = { type: "conjunction", angle: 0 };
 
     aspectableElements.forEach((element) => {
+      const elementLongitude = getChartElementRawLongitude(element);
       const starsWithAspects = fixedStars.filter((star) => {
-        if (aspectElementsAreInProperSigns(element, star, conjunction)) {
-          const orb = getAspectOrb(element, star, conjunction);
-          const valToCheck = mod360(element.longitude + conjunction.angle);
-
-          const lowerLimit = getAspectLimitLongitude(
-            mod360(star.longitude),
-            orb,
-            "lower"
-          );
-          const upperLimit = getAspectLimitLongitude(
-            mod360(star.longitude),
-            orb,
-            "upper"
-          );
-
-          return valToCheck >= lowerLimit && valToCheck <= upperLimit;
-        }
+        return (
+          getSign(elementLongitude, true) === getSign(star.longitude, true) &&
+          getAbsoluteAngularDistance(elementLongitude, star.longitude) <=
+            getFixedStarOrb(star)
+        );
       });
 
       if (starsWithAspects.length > 0) {
         starsWithAspects.forEach((star) => {
-          if (
-            !aspectAlreadyRegistered(aspectsData, element, star, conjunction)
-          ) {
-            aspectsData.push({
-              aspectType: conjunction.type,
-              element: {
-                name: element.planetType ?? element.name,
-                longitude: element.longitude,
-                elementType: element.elementType,
-                isFromOuterChart: element.isFromOuterChart!,
-                isAntiscion: element.isAntiscion,
-                isRetrograde: element.isRetrograde,
-              },
-              aspectedElement: {
-                name: star.name,
-                longitude: star.longitude,
-                elementType: "fixedStar",
-                isFromOuterChart: false,
-                isAntiscion: false,
-                isRetrograde: false,
-                isRelevant: star.isRelevant
-              },
-              key: generateAspectKey(element, star, conjunction),
-            });
-          }
+          aspectsData.push({
+            aspectType: conjunction.type,
+            element: {
+              name: element.planetType ?? element.name,
+              longitude: elementLongitude,
+              elementType: element.elementType,
+              isFromOuterChart: element.isFromOuterChart!,
+              isAntiscion: element.isAntiscion,
+              isRetrograde: element.isRetrograde,
+            },
+            aspectedElement: {
+              name: star.name,
+              longitude: star.longitude,
+              elementType: "fixedStar",
+              isFromOuterChart: false,
+              isAntiscion: false,
+              isRetrograde: false,
+              isRelevant: star.isRelevant,
+            },
+            key: generateAspectKey(element, star, conjunction),
+          });
         });
       }
     });
-
-    // console.log(aspectsData);
 
     return aspectsData;
   }
@@ -871,27 +788,22 @@ const AstroChart: React.FC<AstroChartProps> = ({ props }) => {
   function getAspectStrokeWidth(aspect: PlanetAspectData): number {
     if (aspect.aspectType === "conjunction") return 6;
 
-    const angle = ASPECTS.find((asp) => asp.type === aspect.aspectType)?.angle;
-    let diff = 0;
     let width = 1;
 
-    if (angle) {
-      const angle = getDegreesInsideASign(aspect.element.longitude);
-      const aspectedAngle = getDegreesInsideASign(
-        aspect.aspectedElement.longitude
-      );
-      diff = decimalToDegreesMinutes(Math.abs(aspectedAngle - angle));
+    const diff = decimalToDegreesMinutes(
+      getTraditionalAspectOrbFromLongitudes(
+        aspect.element.longitude,
+        aspect.aspectedElement.longitude,
+        aspect.aspectType
+      )
+    );
 
-      if (diff <= 0.3) {
-        // The perfect aspect
-        width = 2;
-      } else if (diff > 0.3 && diff <= 1.3) {
-        // The mid-high width aspect
-        width = 1.5;
-      } else if (diff > 1.3 && diff <= 2.3) {
-        // The mid-lower aspect
-        width = 1.25;
-      }
+    if (diff <= 0.3) {
+      width = 2;
+    } else if (diff > 0.3 && diff <= 1.3) {
+      width = 1.5;
+    } else if (diff > 1.3 && diff <= 2.3) {
+      width = 1.25;
     }
 
     return width; // default

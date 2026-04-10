@@ -144,7 +144,7 @@ export function generateTraditionalReport(chart: BirthChart): string {
   }
 
   report += "--------------------------------------------------------------------\n";
-  report += "ASPECTOS ENTRE PLANETAS:\n\n";
+  report += "ASPECTOS TRADICIONAIS:\n\n";
   const aspList = getAspects(chart);
   aspList.forEach((aspect) => {
     report += `${aspect}\n`;
