@@ -12,31 +12,22 @@ import {
   fromTotal,
   ORDERED_ARABIC_PART_KEYS,
 } from "./arabicLots";
-import { AVERAGE_DAILY_SPEED, SIGNS } from "./traditionalTables";
+import { AVERAGE_DAILY_SPEED, DOMICILE_RULER, SIGNS } from "./traditionalTables";
 import { calculateTemperament } from "./traditionalTemperament";
 import {
   buildFixedStarReportLine,
   calculateFixedStarMatches,
 } from "./fixedStars";
 
-const DOMICILE_RULER: string[] = [
-  "Marte",
-  "Venus",
-  "Mercurio",
-  "Lua",
-  "Sol",
-  "Mercurio",
-  "Venus",
-  "Marte",
-  "Jupiter",
-  "Saturno",
-  "Saturno",
-  "Jupiter",
-];
-
 const OUTER_PLANET_TYPES = new Set(["uranus", "neptune", "pluto"]);
 const NODE_TYPES = new Set(["northNode", "southNode"]);
 const RETROGRADE_SPEED_EPSILON = 1e-6;
+const ARABIC_PARTS_WITH_DO_ARTICLE = new Set([
+  "Espírito",
+  "Amor",
+  "Valor",
+  "Cativeiro",
+]);
 
 interface TraditionalReportArabicPart {
   name: string;
@@ -111,7 +102,7 @@ export function generateTraditionalReport(chart: BirthChart): string {
   report += "PARTES ARABES:\n\n";
   const parts = buildTraditionalReportArabicParts(chart);
   parts.forEach((p) => {
-    report += `Parte d${p.name.endsWith("o") || p.name === "Valor" || p.name === "Espirito" ? "o" : "a"} ${p.name} em ${p.posFormatted} na ${p.house}. (Dispositor: ${p.dispositor}). Antiscion: ${p.antiscion}.\n`;
+    report += `Parte ${getArabicPartArticle(p.name)} ${p.name} em ${p.posFormatted} na ${p.house}. (Dispositor: ${p.dispositor}). Antiscion: ${p.antiscion}.\n`;
   });
 
   report += "--------------------------------------------------------------------\n";
@@ -199,19 +190,27 @@ function buildTraditionalReportArabicParts(
         longitude: lot.longitude,
         posFormatted: formatDegrees(lot.longitude),
         house: `Casa ${getHouseIndex(lot.longitude, chart.housesData.house)}`,
-        dispositor: `${ruler} em ${
-          rulerPlanet
-            ? formatDegrees(rulerPlanet.longitudeRaw)
-            : "Nenhum"
-        }, na Casa ${
-          rulerPlanet
-            ? getHouseIndex(rulerPlanet.longitudeRaw, chart.housesData.house)
-            : "?"
-        }`,
+        dispositor: formatDispositor(ruler, rulerPlanet, chart),
         antiscion: formatDegrees(lot.antiscionRaw),
       },
     ];
   });
+}
+
+function getArabicPartArticle(name: string): string {
+  return ARABIC_PARTS_WITH_DO_ARTICLE.has(name) ? "do" : "da";
+}
+
+function formatDispositor(
+  ruler: string,
+  rulerPlanet: Planet | undefined,
+  chart: BirthChart,
+): string {
+  if (!rulerPlanet) {
+    return ruler;
+  }
+
+  return `${ruler} em ${formatDegrees(rulerPlanet.longitudeRaw)}, na Casa ${getHouseIndex(rulerPlanet.longitudeRaw, chart.housesData.house)}`;
 }
 
 function formatPlanetReportLine(planet: Planet, chart: BirthChart): string {
