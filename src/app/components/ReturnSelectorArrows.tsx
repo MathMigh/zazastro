@@ -72,7 +72,9 @@ export default function ReturnSelectorArrows(props: ChartSelectorProps) {
           targetDate,
           returnTime: data.returnTime,
           fixedStars: data.fixedStars,
+          fixedStarMatches: data.fixedStarMatches,
           timezone: data.timezone,
+          traditionalReport: data.traditionalReport,
         },
       });
     } catch (error) {

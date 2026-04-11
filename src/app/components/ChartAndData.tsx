@@ -30,6 +30,7 @@ interface Props {
   chartDateProps: ChatDateProps;
   outerChartDateProps?: ChatDateProps;
   title?: string;
+  subtitle?: string;
 }
 
 export default function ChartAndData(props: Props) {
@@ -40,12 +41,13 @@ export default function ChartAndData(props: Props) {
     outerArabicParts,
     tableItemsPerPage,
     chartDateProps,
-    outerChartDateProps,
     title,
+    subtitle,
   } = props;
 
   const [loading, setLoading] = useState(true);
   const [aspectsData, setAspectsData] = useState<PlanetAspectData[]>([]);
+  const [reportCopyLabel, setReportCopyLabel] = useState("Copiar relatório");
   const itemsPerPage =
     tableItemsPerPage ?? ASPECT_TABLE_ITEMS_PER_PAGE_DEFAULT;
   const {
@@ -113,9 +115,12 @@ export default function ChartAndData(props: Props) {
     resetChartMenus();
   }, []);
 
-  function handleOnUpdateAspectsData(newAspectData: PlanetAspectData[]) {
-    setAspectsData(newAspectData);
-  }
+  const handleOnUpdateAspectsData = useCallback(
+    (newAspectData: PlanetAspectData[]) => {
+      setAspectsData(newAspectData);
+    },
+    []
+  );
 
   function getTraditionalReportChart(): BirthChart | undefined {
     if (innerChart.traditionalReport) return innerChart;
@@ -135,6 +140,37 @@ export default function ChartAndData(props: Props) {
     URL.revokeObjectURL(url);
   }
 
+  async function copyTraditionalReport(reportChart: BirthChart) {
+    const reportText = reportChart.traditionalReport ?? "";
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(reportText);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = reportText;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setReportCopyLabel("Copiado");
+      window.setTimeout(() => {
+        setReportCopyLabel("Copiar relatório");
+      }, 1800);
+    } catch (error) {
+      console.error("Erro ao copiar relatório tradicional:", error);
+      setReportCopyLabel("Falha ao copiar");
+      window.setTimeout(() => {
+        setReportCopyLabel("Copiar relatório");
+      }, 1800);
+    }
+  }
+
   function renderChart(): JSX.Element {
     return (
       <Container className="w-full px-2! py-6! sm:px-4! lg:px-0!">
@@ -147,9 +183,16 @@ export default function ChartAndData(props: Props) {
           )}
 
           {title && (
-            <h1 className="mb-4 text-center text-lg font-bold text-amber-50 md:mb-5 md:text-2xl">
-              {title}
-            </h1>
+            <div className="mb-7 flex flex-col items-center gap-2 text-center md:mb-9">
+              <h1 className="text-lg font-bold leading-tight text-amber-50 md:text-2xl">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="section-copy text-sm text-amber-100/80">
+                  {subtitle}
+                </p>
+              )}
+            </div>
           )}
 
           <AstroChart
@@ -262,13 +305,23 @@ export default function ChartAndData(props: Props) {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => downloadTraditionalReport(reportChart)}
-            className="rounded-full border border-amber-700/20 bg-white/70 px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-amber-900 transition-colors hover:bg-white"
-          >
-            Baixar .txt
-          </button>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <button
+              type="button"
+              onClick={() => copyTraditionalReport(reportChart)}
+              className="rounded-full border border-amber-700/20 bg-white/70 px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-amber-900 transition-colors hover:bg-white"
+            >
+              {reportCopyLabel}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => downloadTraditionalReport(reportChart)}
+              className="rounded-full border border-amber-700/20 bg-white/70 px-4 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-amber-900 transition-colors hover:bg-white"
+            >
+              Baixar .txt
+            </button>
+          </div>
         </div>
 
         <pre className="traditional-report-text max-h-[70vh] overflow-x-auto whitespace-pre-wrap px-5 pb-5 pt-4 font-mono text-[0.8rem] leading-7 md:text-[0.92rem]">

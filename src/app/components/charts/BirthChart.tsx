@@ -40,6 +40,35 @@ type MenuButtonChoice =
   | "profection"
   | "momentMap";
 
+const COMING_SOON_FEATURES = [
+  "Trânsitos Planetários",
+  "Direções Primárias",
+  "Retornos Planetários",
+  "Casas Derivadas",
+  "Astrologia Horária",
+  "Astrocartografia",
+  "Eletiva",
+];
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) {
+    const apiPrefix = /^API fetch error \d+:\s*/;
+    return error.message.replace(apiPrefix, "").trim() || fallback;
+  }
+
+  return fallback;
+}
+
+function getProgressionTargetDate(
+  birthDate: BirthDate,
+  yearsToAdvance: number
+): BirthDate {
+  return {
+    ...birthDate,
+    year: birthDate.year + yearsToAdvance,
+  };
+}
+
 export default function BirthChart() {
   const [loading, setLoading] = useState(false);
   const {
@@ -85,6 +114,7 @@ export default function BirthChart() {
   const [isClientReady, setIsClientReady] = useState(false);
   const [activeChart, setActiveChart] = useState(chartMenu);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const solarReturnForm = useRef<HTMLFormElement>(null);
   const lunarReturnForm = useRef<HTMLFormElement>(null);
@@ -107,6 +137,12 @@ export default function BirthChart() {
 
     return () => clearTimeout(timeout);
   }, [chartMenu]);
+
+  useEffect(() => {
+    if (menu !== "home" && feedbackMessage) {
+      setFeedbackMessage(null);
+    }
+  }, [menu, feedbackMessage]);
 
   useEffect(() => {
     if (birthChart === undefined && returnChart === undefined) {
@@ -169,19 +205,32 @@ export default function BirthChart() {
     if (menu === "home") {
       firstProfileSetAtBeggining.current = false;
       setChartProfile(profiles[0]);
-      setSinastryProfile(profiles[0]);
+      setSinastryProfile(profiles[1] ?? profiles[0]);
     }
   }, [menu, chartProfile]);
 
   useEffect(() => {
     if (profiles.length > 0 && !firstProfileSetAtBeggining.current) {
       setChartProfile(profiles[0]);
+      setSinastryProfile(profiles[1] ?? profiles[0]);
       firstProfileSetAtBeggining.current = true;
     }
   }, [profiles]);
 
+  function openMenu(nextMenu: MenuButtonChoice) {
+    setFeedbackMessage(null);
+    setMenu(nextMenu);
+  }
+
+  function showComingSoonFeature(featureName: string) {
+    setFeedbackMessage(
+      `${featureName} já apareceu na entrada, mas a API desse módulo ainda não existe neste projeto.`
+    );
+  }
+
   async function getBirthChart(chartProfileToOverwrite?: BirthChartProfile) {
     setLoading(true);
+    setFeedbackMessage(null);
     if (chartProfileToOverwrite) {
       setChartProfile(chartProfileToOverwrite);
     }
@@ -210,6 +259,9 @@ export default function BirthChart() {
       });
     } catch (error) {
       console.error("Erro ao consultar mapa astral:", error);
+      setFeedbackMessage(
+        getErrorMessage(error, "Não foi possível gerar o mapa agora.")
+      );
     } finally {
       setLoading(false);
     }
@@ -217,8 +269,13 @@ export default function BirthChart() {
 
   const getPlanetReturn = async (returnType: ReturnChartType) => {
     setLoading(true);
+    setFeedbackMessage(null);
 
-    if (!chartProfile) return;
+    if (!chartProfile?.birthDate) {
+      setFeedbackMessage("Escolha um mapa antes de calcular o retorno.");
+      setLoading(false);
+      return;
+    }
 
     const targetDate: BirthDate = {
       ...chartProfile.birthDate!,
@@ -231,37 +288,47 @@ export default function BirthChart() {
     if (chartProfile?.birthDate?.coordinates)
       selectCity(chartProfile?.birthDate?.coordinates);
 
-    const data = await apiFetch("return/" + returnType, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        birthDate: chartProfile?.birthDate,
-        targetDate,
-      }),
-    });
+    try {
+      const [birthData, returnData] = await Promise.all([
+        apiFetch("birth-chart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            birthDate: chartProfile.birthDate,
+          }),
+        }),
+        apiFetch("return/" + returnType, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            birthDate: chartProfile.birthDate,
+            targetDate,
+          }),
+        }),
+      ]);
 
-    updateBirthChart({
-      chartType: "birth",
-      profileName: chartProfile?.name,
-      chartData: {
-        ...data,
-        birthDate: chartProfile?.birthDate,
-        targetDate,
-      },
-    });
+      updateBirthChart({
+        chartType: "birth",
+        profileName: chartProfile.name,
+        chartData: {
+          ...birthData,
+          birthDate: chartProfile.birthDate,
+        },
+      });
 
-    if (chartProfile) {
       updateBirthChart({
         chartType: "return",
         chartData: {
-          planets: data.returnPlanets,
-          housesData: data.returnHousesData,
+          planets: returnData.returnPlanets,
+          housesData: returnData.returnHousesData,
           returnType,
-          birthDate: chartProfile.birthDate!,
+          birthDate: chartProfile.birthDate,
           targetDate,
-          returnTime: data.returnTime,
-          fixedStars: data.fixedStars,
-          timezone: data.timezone,
+          returnTime: returnData.returnTime,
+          fixedStars: returnData.fixedStars,
+          fixedStarMatches: returnData.fixedStarMatches,
+          timezone: returnData.timezone,
+          traditionalReport: returnData.traditionalReport,
         },
       });
 
@@ -269,11 +336,18 @@ export default function BirthChart() {
         returnType === "solar" ? "solarReturn" : "lunarReturn";
       addChartMenu(chartType);
       updateChartMenuDirectly(chartType);
+    } catch (error) {
+      console.error("Erro ao consultar mapa de retorno:", error);
+      setFeedbackMessage(
+        getErrorMessage(error, "Não foi possível gerar o retorno agora.")
+      );
+    } finally {
       setLoading(false);
     }
   };
 
   const getMomentBirthChart = async () => {
+    setFeedbackMessage(null);
     const now = new Date();
     const hourString = convertDegMinToDecimal(
       now.getHours(),
@@ -301,8 +375,9 @@ export default function BirthChart() {
 
   const makeSinastryCharts = async () => {
     setLoading(true);
+    setFeedbackMessage(null);
 
-    if (!chartProfile) {
+    if (!chartProfile || !sinastryProfile) {
       setLoading(false);
       return;
     }
@@ -351,6 +426,9 @@ export default function BirthChart() {
       setLoading(false);
     } catch (error) {
       console.error("Erro ao consultar mapa astral:", error);
+      setFeedbackMessage(
+        getErrorMessage(error, "Não foi possível gerar a sinastria agora.")
+      );
     } finally {
       setLoading(false);
     }
@@ -373,7 +451,13 @@ export default function BirthChart() {
 
   async function makeSecondaryProgression() {
     let birthDate = chartProfile?.birthDate;
-    if (!birthDate || !progressionYear) return;
+    if (!birthDate || progressionYear === undefined) {
+      setFeedbackMessage("Informe um mapa e o número de anos da progressão.");
+      return;
+    }
+
+    setFeedbackMessage(null);
+    const targetDate = getProgressionTargetDate(birthDate, progressionYear);
 
     const jsDate = new Date(birthDate.year, birthDate.month - 1, birthDate.day);
     jsDate.setDate(jsDate.getDate() + progressionYear);
@@ -402,6 +486,7 @@ export default function BirthChart() {
         chartData: {
           ...data,
           birthDate,
+          targetDate,
         },
         chartType: "progression",
       });
@@ -411,6 +496,9 @@ export default function BirthChart() {
       updateChartMenuDirectly(chartType);
     } catch (error) {
       console.error("Erro ao consultar mapa astral:", error);
+      setFeedbackMessage(
+        getErrorMessage(error, "Não foi possível gerar a progressão agora.")
+      );
     } finally {
       setLoading(false);
     }
@@ -418,6 +506,7 @@ export default function BirthChart() {
 
   function makeProfection() {
     setLoading(true);
+    setFeedbackMessage(null);
 
     if (!birthChart) {
       setLoading(false);
@@ -508,14 +597,9 @@ export default function BirthChart() {
   const getInitialMenuContent = (): JSX.Element =>
     <Container className="mx-auto mt-10 w-[94%] sm:w-[32rem]">
       <div className="w-full px-4 pt-2 text-center sm:px-2">
-        <p className="section-eyebrow mb-3">Leitura Classica</p>
         <h2 className="section-title text-[1.8rem] font-semibold text-amber-50 sm:text-[2.1rem]">
         {getTitleMenuTitle()}
         </h2>
-        <p className="section-copy mt-3 text-sm">
-          Gere mapas natais, retornos, sinastrias e tecnicas tradicionais em um
-          painel pensado para consulta longa e leitura serena.
-        </p>
       </div>
 
       <div className="mt-8 w-full p-4 sm:p-0 flex flex-col gap-3">
@@ -523,54 +607,68 @@ export default function BirthChart() {
           <div className="w-full flex flex-col gap-3">
             <button
               className="default-btn"
-              onClick={() => setMenu("birthChart")}
+              onClick={() => openMenu("birthChart")}
             >
               Mapa Natal
             </button>
 
             <button
               className="default-btn"
-              onClick={() => setMenu("solarReturn")}
+              onClick={() => openMenu("solarReturn")}
             >
               Revolução Solar
             </button>
 
             <button
               className="default-btn"
-              onClick={() => setMenu("lunarReturn")}
+              onClick={() => openMenu("lunarReturn")}
             >
               Revolução Lunar
             </button>
 
             <button
               className="default-btn"
-              onClick={() => setMenu("sinastry")}
+              onClick={() => openMenu("sinastry")}
             >
               Combinar mapas (Sinastria)
             </button>
 
             <button
               className="default-btn"
-              onClick={() => setMenu("secondaryProgressions")}
+              onClick={() => openMenu("secondaryProgressions")}
             >
               Progressão Secundária
             </button>
 
             <button
               className="default-btn"
-              onClick={() => setMenu("profection")}
+              onClick={() => openMenu("profection")}
             >
               Profecção
             </button>
-            <div className="mt-2 rounded-[1.35rem] border border-amber-300/12 bg-white/[0.03] px-4 py-4 text-left">
-              <p className="section-eyebrow mb-2 text-[0.62rem]!">
-                Metodo
-              </p>
-              <p className="section-copy text-sm">
-                Casas em Regiomontanus, calculo por Swiss Ephemeris e relatorio
-                tradicional com dignidades, anticios, partes arabes, secto e
-                temperamento.
-              </p>
+            <button
+              onClick={() => openMenu("momentMap")}
+              className="default-btn"
+            >
+              Mapa do Momento
+            </button>
+
+            <div className="mt-2 flex flex-col gap-2">
+              {COMING_SOON_FEATURES.map((feature) => (
+                <button
+                  key={feature}
+                  type="button"
+                  className="default-btn !border-amber-200/16 !bg-white/[0.03] !text-amber-100 !shadow-none hover:!translate-y-0 hover:!brightness-100 hover:!shadow-none"
+                  onClick={() => showComingSoonFeature(feature)}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span>{feature}</span>
+                    <span className="rounded-full border border-amber-200/14 px-3 py-1 text-[0.58rem] uppercase tracking-[0.18em] text-amber-200/80">
+                      Em breve
+                    </span>
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -585,6 +683,7 @@ export default function BirthChart() {
         {menu === "solarReturn" && (
           <>
             <PresavedChartsDropdown
+              selectedProfileId={chartProfile?.id}
               onChange={(profile) => setChartProfile(profile)}
             />
             <form
@@ -642,6 +741,7 @@ export default function BirthChart() {
         {menu === "lunarReturn" && (
           <>
             <PresavedChartsDropdown
+              selectedProfileId={chartProfile?.id}
               onChange={(newProfile) => setChartProfile(newProfile)}
             />
             <form
@@ -732,11 +832,13 @@ export default function BirthChart() {
           <>
             <span className="section-copy text-sm">Primeiro mapa:</span>
             <PresavedChartsDropdown
+              selectedProfileId={chartProfile?.id}
               onChange={(profile) => setChartProfile(profile)}
             />
 
             <span className="section-copy text-sm">Segundo mapa:</span>
             <PresavedChartsDropdown
+              selectedProfileId={sinastryProfile?.id}
               onChange={(profile) => setSinastryProfile(profile)}
             />
 
@@ -747,15 +849,6 @@ export default function BirthChart() {
               Gerar sinastria
             </button>
           </>
-        )}
-
-        {menu === "home" && (
-          <button
-            onClick={() => setMenu("momentMap")}
-            className="default-btn"
-          >
-            Mapa do Momento
-          </button>
         )}
 
         {menu === "secondaryProgressions" && (
@@ -769,6 +862,7 @@ export default function BirthChart() {
           >
             <span className="section-copy text-sm">Selecione o mapa:</span>
             <PresavedChartsDropdown
+              selectedProfileId={chartProfile?.id}
               onChange={(profile) => setChartProfile(profile)}
             />
 
@@ -814,6 +908,7 @@ export default function BirthChart() {
           >
             <span className="section-copy text-sm">Selecione o mapa:</span>
             <PresavedChartsDropdown
+              selectedProfileId={chartProfile?.id}
               onChange={(profile) => setChartProfile(profile)}
             />
 
@@ -862,11 +957,17 @@ export default function BirthChart() {
           </>
         )}
 
+        {feedbackMessage && (
+          <p className="rounded-[1.15rem] border border-amber-200/14 bg-white/[0.03] px-4 py-3 text-sm leading-6 text-amber-100/88">
+            {feedbackMessage}
+          </p>
+        )}
+
         {/* Back btn */}
         {menu !== "home" && (
           <button
             className="default-btn"
-            onClick={() => setMenu("home")}
+            onClick={() => openMenu("home")}
           >
             Voltar
           </button>

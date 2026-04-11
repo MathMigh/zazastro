@@ -458,6 +458,8 @@ export function makeLunarDerivedChart(data: any, birthDate: BirthDate, targetDat
     returnTime: data.returnTime,
     birthDate,
     targetDate,
+    traditionalReport: data.traditionalReport,
+    fixedStarMatches: data.fixedStarMatches,
     planets: data.returnPlanets.map((planet: Planet) => {
       const total = toTotal(planet.longitude);
       return {

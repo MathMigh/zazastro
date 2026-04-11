@@ -7,6 +7,7 @@ import {
 } from "./fixedStars";
 
 let swe: SwissEphemeris | null = null;
+let sweInitPromise: Promise<SwissEphemeris> | null = null;
 
 interface CoordinatesLike {
   latitude: number;
@@ -15,11 +16,28 @@ interface CoordinatesLike {
 }
 
 export async function getSwe(): Promise<SwissEphemeris> {
-  if (!swe) {
-    swe = new SwissEphemeris();
-    await swe.init("https://unpkg.com/@swisseph/browser@1.1.1/dist/swisseph.wasm");
+  if (swe && sweInitPromise) {
+    return sweInitPromise;
   }
-  return swe;
+
+  if (swe) {
+    return swe;
+  }
+
+  const instance = new SwissEphemeris();
+  swe = instance;
+  sweInitPromise = instance
+    .init("https://unpkg.com/@swisseph/browser@1.1.1/dist/swisseph.wasm")
+    .then(() => instance)
+    .catch((error) => {
+      if (swe === instance) {
+        swe = null;
+      }
+      sweInitPromise = null;
+      throw error;
+    });
+
+  return sweInitPromise;
 }
 
 const SIGNS = ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"];

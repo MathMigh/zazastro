@@ -2,16 +2,15 @@ import { useBirthChart } from "@/contexts/BirthChartContext";
 import { useEffect, useState } from "react";
 import { useArabicParts } from "@/contexts/ArabicPartsContext";
 import ChartAndData from ".././ChartAndData";
-import {
-  getReturnDateRangeString,
-} from "@/utils/chartUtils";
+import { getReturnDateRangeString } from "@/utils/chartUtils";
 import { ASPECT_TABLE_ITEMS_PER_PAGE_DEFAULT } from "@/app/utils/constants";
 import { BirthChart } from "@/interfaces/BirthChartInterfaces";
 import { ArabicPartsType } from "@/interfaces/ArabicPartInterfaces";
 
 export default function ReturnChart() {
   const { profileName } = useBirthChart();
-  const { birthChart, returnChart, isCombinedWithBirthChart } = useBirthChart();
+  const { birthChart, returnChart, isCombinedWithBirthChart } =
+    useBirthChart();
   const { arabicParts, archArabicParts } = useArabicParts();
   const [isSolarReturn, setIsSolarReturn] = useState(true);
   const [tableItemsPerPage, setTableItemsPerPage] = useState(
@@ -27,24 +26,37 @@ export default function ReturnChart() {
   }
 
   function getTitle() {
-    return `Retorno ${isSolarReturn ? "Solar" : "Lunar"} para 
-            ${getReturnDateRangeString(
+    return `Retorno ${isSolarReturn ? "Solar" : "Lunar"} para ${getReturnDateRangeString(
       returnChart?.returnTime ?? "0000-00-00 00:00:00",
       isSolarReturn ? "solar" : "lunar"
     )} - ${profileName}`;
   }
 
-  const getInnerChart = (): BirthChart => !isCombinedWithBirthChart ? returnChart! : birthChart!;
-  const getOuterchart = (): BirthChart | undefined => !isCombinedWithBirthChart ? undefined : returnChart;
+  function getSubtitle() {
+    const referenceYear = returnChart?.targetDate?.year;
+    if (!referenceYear) {
+      return undefined;
+    }
+
+    return `Ano consultado: ${referenceYear}`;
+  }
+
+  const getInnerChart = (): BirthChart =>
+    !isCombinedWithBirthChart ? returnChart! : birthChart!;
+
+  const getOuterchart = (): BirthChart | undefined =>
+    !isCombinedWithBirthChart ? undefined : returnChart;
+
   const getInnerArabicParts = (): ArabicPartsType | undefined =>
-    !isCombinedWithBirthChart ? archArabicParts : arabicParts
+    !isCombinedWithBirthChart ? archArabicParts : arabicParts;
+
   const getOuterArabicParts = (): ArabicPartsType | undefined =>
     isCombinedWithBirthChart ? archArabicParts : undefined;
 
   return (
-    <div className="w-full flex flex-col items-center justify-center gap-3 mb-4">
+    <div className="mb-4 flex w-full flex-col items-center justify-center gap-3">
       {returnChart && returnChart.timezone && (
-        <div className="w-full text-left flex flex-col items-center">
+        <div className="flex w-full flex-col items-center text-left">
           <ChartAndData
             innerChart={getInnerChart()}
             outerChart={getOuterchart()}
@@ -58,9 +70,10 @@ export default function ReturnChart() {
               label: "Retorno",
             }}
             title={getTitle()}
+            subtitle={getSubtitle()}
           />
         </div>
       )}
-    </div >
+    </div>
   );
 }

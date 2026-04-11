@@ -8,7 +8,8 @@ import { ArabicPartsType } from "@/interfaces/ArabicPartInterfaces";
 
 export default function SecondaryProgressionChart() {
   const { profileName } = useBirthChart();
-  const { birthChart, progressionChart, isCombinedWithBirthChart } = useBirthChart();
+  const { birthChart, progressionChart, isCombinedWithBirthChart } =
+    useBirthChart();
   const { arabicParts, archArabicParts } = useArabicParts();
 
   const [tableItemsPerPage, setTableItemsPerPage] = useState(
@@ -23,15 +24,20 @@ export default function SecondaryProgressionChart() {
     return null;
   }
 
-  const getInnerChart = (): BirthChart => !isCombinedWithBirthChart ? progressionChart! : birthChart!;
+  const getInnerChart = (): BirthChart =>
+    !isCombinedWithBirthChart ? progressionChart : birthChart;
 
-  const getOuterchart = (): BirthChart | undefined => !isCombinedWithBirthChart ? undefined : progressionChart;
+  const getOuterchart = (): BirthChart | undefined =>
+    !isCombinedWithBirthChart ? undefined : progressionChart;
 
   const getInnerArabicParts = (): ArabicPartsType | undefined =>
     !isCombinedWithBirthChart ? archArabicParts : arabicParts;
 
   const getOuterArabicParts = (): ArabicPartsType | undefined =>
     !isCombinedWithBirthChart ? undefined : archArabicParts;
+
+  const targetYear = progressionChart.targetDate?.year;
+  const subtitle = targetYear ? `Ano consultado: ${targetYear}` : undefined;
 
   return (
     <ChartAndData
@@ -43,7 +49,7 @@ export default function SecondaryProgressionChart() {
       onTableItemsPerPageChanged={handleOnItemsPerPagechanged}
       chartDateProps={{
         chartType: "birth",
-        birthChart: birthChart,
+        birthChart,
         label: "Nascimento",
       }}
       outerChartDateProps={{
@@ -52,6 +58,7 @@ export default function SecondaryProgressionChart() {
         label: "Progredido",
       }}
       title={`Progressão Secundária - ${profileName}`}
+      subtitle={subtitle}
     />
   );
 }
